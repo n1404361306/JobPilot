@@ -1,0 +1,14 @@
+[Unit]
+Description=JobPilot Celery Worker Service
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/jobpilot/backend
+EnvironmentFile=/opt/jobpilot/backend/.env
+ExecStart=/opt/jobpilot/.venv/bin/celery -A app.worker.celery_app.celery_app worker -l info
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
