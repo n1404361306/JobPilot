@@ -1,3 +1,35 @@
+# 本地git管理
+建议创建自己的分支进行编程 测试通过后合并到main分支上
+
+## 常用命令：
+
+1、进入工作目录
+cd /root/JobPilot
+2、切换分支
+   确认在正确分支上再写代码
+git branch
+git checkout main
+git checkout -b feature/ai-ocr-delivery（-b在不存在分支的情况下创建）
+3、开发完成后提交...
+git add .
+git commit -m "feat(ai): add AIClient skeleton"
+4、分支代码合并回 main
+git checkout main
+git merge --no-ff feature/ai-ocr-delivery
+5、看当前状态
+git status
+6、看改了哪些文件
+git diff
+7、提交
+git add .
+git commit -m "feat(ai): xxx"
+8、切换分支
+git checkout feature/ai-ocr-delivery
+9、看提交历史
+git log --oneline --graph --all
+10、撤销未提交的修改（慎用）
+git checkout -- 某文件
+
 # 项目虚拟环境说明
 
 后端使用miniconda虚拟环境JobPilotBack 支持Python3.11
