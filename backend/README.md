@@ -1,3 +1,11 @@
+# 项目虚拟环境说明
+
+后端使用miniconda虚拟环境JobPilotBack 支持Python3.11
+使用方法：
+conda activate JobPilotBack
+需要安装的依赖可以补充到requirements.txt文件中
+                                 5.29 zyq
+
 # JobPilot Backend (A角色交付)
 
 ## Quick Start
