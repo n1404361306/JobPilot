@@ -15,3 +15,4 @@ redis
 celery
 openai
 pytest
+Jinja2
