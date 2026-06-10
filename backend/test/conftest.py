@@ -2,6 +2,9 @@ import pytest
 
 from app.core.config import get_settings
 
+from app.db.session import SessionLocal
+from sqlalchemy.orm import Session
+
 
 @pytest.fixture(scope="session")
 def fallback_settings():
@@ -16,3 +19,11 @@ def fallback_settings():
     if not provider.base_url or not provider.model:
         pytest.skip("AI_FALLBACK_BASE_URL 或 AI_FALLBACK_MODEL 为空")
     return settings
+
+@pytest.fixture
+def db() -> Session:
+    session = SessionLocal()
+    try: 
+        yield session
+    finally:
+        session.close()
