@@ -14,4 +14,5 @@ __all__ = [
     "AILog",
     "OCRLog",
     "SystemLog",
+    "PromptTemplate",
 ]

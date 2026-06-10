@@ -13,6 +13,7 @@ if PROJECT_ROOT not in sys.path:
 from app.core.config import get_settings
 from app.db.base import Base
 from app.models import permission, role, system_config, system_log, user  # noqa: F401
+from app.models import prompt_template
 
 config = context.config
 if config.config_file_name is not None:
