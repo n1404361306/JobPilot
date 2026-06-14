@@ -7,7 +7,7 @@ from app.core.response import ok
 from app.db.session import get_db
 from app.deps.auth import require_permissions
 from app.models.system_config import SystemConfig
-from app.models.system_log import AILog, OCRLog, SystemLog
+from app.models.system_log import AICallLog, OCRLog, SystemLog
 from app.models.user import User
 from app.schemas.admin import ConfigUpdate, UserStatusUpdate
 
@@ -54,8 +54,21 @@ def ai_logs(
     db: Session = Depends(get_db),
     _: User = Depends(require_permissions(["admin:logs:read"])),
 ):
-    logs = db.scalars(select(AILog).order_by(AILog.id.desc()).limit(200)).all()
-    return ok([{"id": x.id, "model_name": x.model_name, "prompt_summary": x.prompt_summary} for x in logs])
+    logs = db.scalars(select(AICallLog).order_by(AICallLog.id.desc()).limit(200)).all()
+    return ok([
+        {
+            "id": x.id, 
+            "user_id": x.user_id,
+            "model_name": x.model_name, 
+            "prompt_type": x.prompt_type,
+            "input_tokens": x.input_tokens,
+            "output_tokens": x.output_tokens,
+            "cost_estimate": x.cost_estimate,
+            "status": x.status,
+            "error_message": x.error_message,
+            "duration_ms": x.duration_ms,
+            "created_at": x.created_at,
+            } for x in logs])
 
 
 @router.get("/ocr-logs")
