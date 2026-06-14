@@ -100,7 +100,7 @@ async def run_ai_with_log(
         duration_ms = int((time.perf_counter() - started) * 1000)
         log_service.log_failure(
             user_id=user_id,
-            model_name=result.model,
+            model_name=model_name,
             prompt_type=prompt_type,
             error_message=str(exc),
             duration_ms=duration_ms
