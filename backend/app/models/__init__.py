@@ -1,3 +1,4 @@
+from app.models.business import Application, Job, Resume, ResumeTemplate
 from app.models.permission import Permission, RolePermission
 from app.models.role import Role
 from app.models.system_config import SystemConfig
@@ -16,4 +17,8 @@ __all__ = [
     "OCRLog",
     "SystemLog",
     "PromptTemplate",
+    "Resume",
+    "ResumeTemplate",
+    "Job",
+    "Application",
 ]
