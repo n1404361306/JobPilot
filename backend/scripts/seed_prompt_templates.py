@@ -21,6 +21,20 @@ from app.modules.ai.prompt_constants import PROMPT_TYPE_RESUME_GENERATE
 from app.modules.ai.prompt_templates.resume_parse import RESUME_PARSE_PROMPT
 from app.modules.ai.prompt_templates.job_parse import JOB_PARSE_PROMPT
 from app.modules.ai.prompt_constants import PROMPT_TYPE_RESUME_PARSE, PROMPT_TYPE_JOB_PARSE
+from app.modules.ai.prompt_constants import (
+    PROMPT_TYPE_MATCHING_ANALYSIS,
+    PROMPT_TYPE_RESUME_OPTIMIZE, 
+    PROMPT_TYPE_RESUME_ADAPT, 
+    PROMPT_TYPE_INTERVIEW_QUESTIONS, 
+    PROMPT_TYPE_INTERVIEW_EVALUATE, 
+    PROMPT_TYPE_WEEKLY_REPORT
+    )
+from app.modules.ai.prompt_templates.matching_analysis import MATCHING_ANALYSIS_PROMPT
+from app.modules.ai.prompt_templates.resume_optimize import RESUME_OPTIMIZE_PROMPT
+from app.modules.ai.prompt_templates.resume_adapt import RESUME_ADAPT_PROMPT
+from app.modules.ai.prompt_templates.interview_questions import INTERVIEW_QUESTIONS_PROMPT
+from app.modules.ai.prompt_templates.interview_evaluate import INTERVIEW_EVALUATE_PROMPT
+from app.modules.ai.prompt_templates.weekly_report import WEEKLY_REPORT_PROMPT
 
 
 
@@ -78,6 +92,42 @@ PROMPT_DEFINITIONS = [
         "template_code": PROMPT_TYPE_JOB_PARSE,
         "template_name": "岗位JD解析",
         "template_content": JOB_PARSE_PROMPT,
+        "version": 1,
+    },
+    {
+        "template_code": PROMPT_TYPE_RESUME_OPTIMIZE,
+        "template_name": "简历优化",
+        "template_content": RESUME_OPTIMIZE_PROMPT,
+        "version": 1,
+    },
+    {
+        "template_code": PROMPT_TYPE_RESUME_ADAPT,
+        "template_name": "岗位适配",
+        "template_content": RESUME_ADAPT_PROMPT,
+        "version": 1,
+    },
+    {
+        "template_code": PROMPT_TYPE_MATCHING_ANALYSIS,
+        "template_name": "岗位匹配解释",
+        "template_content": MATCHING_ANALYSIS_PROMPT,
+        "version": 1,
+    },
+    {
+        "template_code": PROMPT_TYPE_INTERVIEW_QUESTIONS,
+        "template_name": "模拟面试题生成",
+        "template_content": INTERVIEW_QUESTIONS_PROMPT,
+        "version": 1,
+    },
+    {
+        "template_code": PROMPT_TYPE_INTERVIEW_EVALUATE,
+        "template_name": "面试回答评价",
+        "template_content": INTERVIEW_EVALUATE_PROMPT,
+        "version": 1,
+    },
+    {
+        "template_code": PROMPT_TYPE_WEEKLY_REPORT,
+        "template_name": "求职周报",
+        "template_content": WEEKLY_REPORT_PROMPT,
         "version": 1,
     },
     # test_template 可保留，后续 D3.5 起继续追加
