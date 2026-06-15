@@ -21,3 +21,4 @@ uploads/
 # 前端（后续 B 会用到）
 frontend/node_modules/
 frontend/dist/
+frontend/.vite/
