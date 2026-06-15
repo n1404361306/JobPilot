@@ -16,6 +16,9 @@ from sqlalchemy import select
 from app.db.session import SessionLocal
 from app.models.prompt_template import PromptTemplate
 
+from app.modules.ai.prompt_templates.resume_generate import RESUME_GENERATE_PROMPT
+from app.modules.ai.prompt_constants import PROMPT_TYPE_RESUME_GENERATE
+
 TEST_TEMPLATE = PromptTemplate(
     template_code = "test_template",
     template_name = "测试模板",
@@ -52,25 +55,51 @@ TEST_TEMPLATE = PromptTemplate(
     updated_at = datetime.utcnow(),
 )
 
+
+PROMPT_DEFINITIONS = [
+    {
+        "template_code": PROMPT_TYPE_RESUME_GENERATE,
+        "template_name": "文字生成简历",
+        "template_content": RESUME_GENERATE_PROMPT,
+        "version": 1,
+    },
+    # test_template 可保留，后续 D3.5 起继续追加
+]
+
+def _seed_one(db, definition: dict) -> None:
+    existed = db.scalar(
+        select(PromptTemplate).where(
+            PromptTemplate.template_code == definition["template_code"],
+            PromptTemplate.version == definition["version"],
+        )
+    )
+    if existed:
+        print(f"skip: {definition['template_code']} v{definition['version']}")
+        return
+
+    now = datetime.utcnow()
+    db.add(
+        PromptTemplate(
+            template_code=definition["template_code"],
+            template_name=definition["template_name"],
+            template_content=definition["template_content"],
+            version=definition["version"],
+            enabled=True,
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    print(f"seed success: {definition['template_code']} v{definition['version']}")
+
 def main() -> None:
     db = SessionLocal()
     try:
-        existed = db.scalar(
-            select(PromptTemplate).where(
-                PromptTemplate.template_code == TEST_TEMPLATE.template_code,
-                PromptTemplate.version == TEST_TEMPLATE.version,
-            )
-        )
-        if existed:
-            print("seed prompt template already exists, skip")
-            return
-        
-        db.add(TEST_TEMPLATE)
-        db.commit()
-        print("seed prompt template success")
+        print("start")
+        for item in PROMPT_DEFINITIONS:
+            _seed_one(db, item)
     finally:
         db.close()
 
 if __name__ == "__main__":
     main()
-
