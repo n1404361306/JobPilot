@@ -30,6 +30,27 @@
   - user: `id, username, email, is_active, is_superuser`
   - role: `id, code, name`
   - permission: `id, code, name`
+- C侧已交付业务接口：
+  - `GET /api/resumes`
+  - `POST /api/resumes`
+  - `GET /api/resumes/{resume_id}`
+  - `PUT /api/resumes/{resume_id}`
+  - `DELETE /api/resumes/{resume_id}`
+  - `GET /api/resume-templates`
+  - `GET /api/resume-templates/manage`（需 `business:templates:write`）
+  - `POST /api/resume-templates`（需 `business:templates:write`）
+  - `PUT /api/resume-templates/{template_id}`（需 `business:templates:write`）
+  - `DELETE /api/resume-templates/{template_id}`（需 `business:templates:write`）
+  - `GET /api/jobs`
+  - `POST /api/jobs`
+  - `GET /api/jobs/{job_id}`
+  - `PUT /api/jobs/{job_id}`
+  - `DELETE /api/jobs/{job_id}`
+  - `GET /api/applications`
+  - `POST /api/applications`
+  - `GET /api/applications/{application_id}`
+  - `PUT /api/applications/{application_id}`
+  - `DELETE /api/applications/{application_id}`
 
 ## A -> D（AI/OCR/Worker）
 - Worker 服务统一使用 `Celery + Redis`。
