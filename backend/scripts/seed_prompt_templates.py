@@ -18,6 +18,11 @@ from app.models.prompt_template import PromptTemplate
 
 from app.modules.ai.prompt_templates.resume_generate import RESUME_GENERATE_PROMPT
 from app.modules.ai.prompt_constants import PROMPT_TYPE_RESUME_GENERATE
+from app.modules.ai.prompt_templates.resume_parse import RESUME_PARSE_PROMPT
+from app.modules.ai.prompt_templates.job_parse import JOB_PARSE_PROMPT
+from app.modules.ai.prompt_constants import PROMPT_TYPE_RESUME_PARSE, PROMPT_TYPE_JOB_PARSE
+
+
 
 TEST_TEMPLATE = PromptTemplate(
     template_code = "test_template",
@@ -61,6 +66,18 @@ PROMPT_DEFINITIONS = [
         "template_code": PROMPT_TYPE_RESUME_GENERATE,
         "template_name": "文字生成简历",
         "template_content": RESUME_GENERATE_PROMPT,
+        "version": 1,
+    },
+    {
+        "template_code": PROMPT_TYPE_RESUME_PARSE,
+        "template_name": "简历解析",
+        "template_content": RESUME_PARSE_PROMPT,
+        "version": 1,
+    },
+    {
+        "template_code": PROMPT_TYPE_JOB_PARSE,
+        "template_name": "岗位JD解析",
+        "template_content": JOB_PARSE_PROMPT,
         "version": 1,
     },
     # test_template 可保留，后续 D3.5 起继续追加
