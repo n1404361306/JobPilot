@@ -6,9 +6,9 @@ from fastapi import UploadFile
 from app.core.config import get_settings
 from app.core.exceptions import BusinessException
 from app.modules.ocr.ocr_constants import SUPPORTED_IMAGE_EXTENSIONS, SUPPORTED_IMAGE_MIME_TYPES
+from app.modules.ocr.ocr_constants import SUPPORTED_DOCUMENT_EXTENSIONS, SUPPORTED_DOCUMENT_MIME_TYPES
 
-
-async def save_upload_image(*, user_id: int, upload: UploadFile) -> tuple[str, str, str, int]:
+async def save_upload_document(*, user_id: int, upload: UploadFile) -> tuple[str, str, str, int]:
     settings = get_settings()
     original_name = upload.filename or "upload.png"
     suffix = Path(original_name).suffix.lower()
