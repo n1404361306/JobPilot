@@ -16,3 +16,7 @@ celery
 openai
 pytest
 Jinja2
+paddleocr
+paddlepaddle
+Pillow
+PyMuPDF
