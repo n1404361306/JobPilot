@@ -15,6 +15,7 @@ from app.db.base import Base
 from app.models import business  # noqa: F401
 from app.models import permission, role, system_config, system_log, user  # noqa: F401
 from app.models import prompt_template
+from app.models import file_resource, ocr_task
 
 config = context.config
 if config.config_file_name is not None:
