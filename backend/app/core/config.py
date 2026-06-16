@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     ai_temperature: float = Field(default=0.2, alias="AI_TEMPERATURE")
     ai_max_tokens: int = Field(default=4096, alias="AI_MAX_TOKENS")
 
+    # ocr
+    upload_dir: str = Field(default="uploads", alias="UPLOAD_DIR")
+    ocr_engine: str = Field(default="paddleocr", alias="OCR_ENGINE")
+    ocr_lang: str = Field(default="ch", alias="OCR_LANG")
+    ocr_max_file_size_mb: int = Field(default=10, alias="OCR_MAX_FILE_SIZE_MB")
+
+
+
     @field_validator("debug", mode="before")
     @classmethod
     def parse_debug(cls, value):
