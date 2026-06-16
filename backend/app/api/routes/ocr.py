@@ -5,7 +5,7 @@ from app.core.response import ok
 from app.db.session import get_db
 from app.deps.auth import get_current_user
 from app.models.user import User
-from app.modules.ocr.file_storage import save_upload_image
+from app.modules.ocr.file_storage import save_upload_document
 from app.modules.ocr.task_service import OCRTaskService
 from app.schemas.ocr import OCRExtractOut, OCRTaskOut
 
@@ -32,7 +32,7 @@ async def extract_text(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    file_path, file_name, file_type, file_size = await save_upload_image(user_id=user.id, upload=file)
+    file_path, file_name, file_type, file_size = await save_upload_document(user_id=user.id, upload=file)
 
     service = OCRTaskService(db)
     file_record = service.create_file_resource(

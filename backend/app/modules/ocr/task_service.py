@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 
@@ -71,19 +72,33 @@ class OCRTaskService:
         self.db.commit()
 
         try:
-            result = self.ocr.extract_from_image_path(file.file_path)
+            # result = self.ocr.extract_from_image_path(file.file_path)
+            suffix = Path(file.file_path).suffix.lower()
+            if suffix == ".pdf":
+                result = self.ocr.extract_from_pdf_path(file.file_path)
+                source_type = "pdf"
+            else:
+                result = self.ocr.extract_from_image_path(file.file_path)
+                source_type = "image"
             task.ocr_text = result.text
             task.confidence_avg = Decimal(str(round(result.confidence_avg, 2)))
             task.page_count = result.page_count
             task.task_status = OCR_TASK_SUCCESS
             task.error_message = None
             task.finished_at = datetime.utcnow()
-            self._write_ocr_log(source_type="image", summary=result.text, engine=result.engine)
+            self._write_ocr_log(source_type=source_type, summary=result.text, engine=result.engine)
         except Exception as exc:
+            suffix = Path(file.file_path).suffix.lower()
+            if suffix == ".pdf":
+                # result = self.ocr.extract_from_pdf_path(file.file_path)
+                source_type = "pdf"
+            else:
+                # result = self.ocr.extract_from_image_path(file.file_path)
+                source_type = "image"
             task.task_status = OCR_TASK_FAILED
             task.error_message = str(exc)[:2000]
             task.finished_at = datetime.utcnow()
-            self._write_ocr_log(source_type="image", summary=str(exc), engine="error", is_error=True)
+            self._write_ocr_log(source_type=source_type, summary=str(exc), engine="error", is_error=True)
             self.db.add(task)
             self.db.commit()
             raise
