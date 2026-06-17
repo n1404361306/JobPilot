@@ -18,5 +18,6 @@ pytest
 Jinja2
 paddleocr
 paddlepaddle
+pytesseract
 Pillow
 PyMuPDF
