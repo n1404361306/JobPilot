@@ -13,8 +13,8 @@ async def save_upload_document(*, user_id: int, upload: UploadFile) -> tuple[str
     original_name = upload.filename or "upload.png"
     suffix = Path(original_name).suffix.lower()
 
-    if suffix not in SUPPORTED_IMAGE_EXTENSIONS:
-        raise BusinessException(code=4006, message="unsupported image type, only png/jpg/jpeg")
+    if suffix not in SUPPORTED_DOCUMENT_EXTENSIONS:
+        raise BusinessException(code=4006, message="unsupported file type, only pdf/png/jpg/jpeg")
 
     content_type = (upload.content_type or "").lower()
     if content_type and content_type not in SUPPORTED_IMAGE_MIME_TYPES:
