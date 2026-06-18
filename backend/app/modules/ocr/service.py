@@ -108,5 +108,7 @@ def _get_paddle_ocr(lang: str):
         lang=lang, 
         ocr_version="PP-OCRv4",
         use_textline_orientation=True,
-        enable_mkldnn=False
+        enable_mkldnn=False,
+        use_doc_unwarping=False,
+        use_doc_orientation_classify=False,
         )
