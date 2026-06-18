@@ -79,7 +79,7 @@
             >
               <el-icon class="el-icon--upload"><Picture /></el-icon>
               <div class="el-upload__text">拖拽或点击上传岗位截图</div>
-              <div class="el-upload__tip">支持 PNG、JPG、JPEG、WEBP，使用本机 OCR 识别后再解析</div>
+              <div class="el-upload__tip">支持 PNG、JPG、JPEG、WEBP，上传后由服务端 OCR 识别并解析</div>
             </el-upload>
             <div v-if="selectedImage" class="file-row">
               <span>{{ selectedImage.name }}</span>

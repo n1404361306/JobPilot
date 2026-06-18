@@ -1,84 +1,54 @@
-# 本地git管理
-建议创建自己的分支进行编程 测试通过后合并到main分支上
+# JobPilot Backend
 
-## 常用命令：
+JobPilot 后端基于 FastAPI、SQLAlchemy 和 Alembic，提供认证授权、简历管理、岗位管理、AI 能力、OCR、投递跟踪、统计分析和管理后台接口。
 
-1、进入工作目录
-cd /root/JobPilot
-2、切换分支
-   确认在正确分支上再写代码
-git branch
-git checkout main
-git checkout -b feature/ai-ocr-delivery（-b在不存在分支的情况下创建）
-3、开发完成后提交...
-git add .
-git commit -m "feat(ai): add AIClient skeleton"
-4、分支代码合并回 main
-git checkout main
-git merge --no-ff feature/ai-ocr-delivery
-5、看当前状态
-git status
-6、看改了哪些文件
-git diff
-7、提交
-git add .
-git commit -m "feat(ai): xxx"
-8、切换分支
-git checkout feature/ai-ocr-delivery
-9、看提交历史
-git log --oneline --graph --all
-10、撤销未提交的修改（慎用）
-git checkout -- 某文件
-
-# 项目虚拟环境说明
-
-后端使用miniconda虚拟环境JobPilotBack 支持Python3.11
-使用方法：
-conda activate JobPilotBack
-需要安装的依赖可以补充到requirements.txt文件中
-                                 5.29 zyq
-
-# JobPilot Backend (A角色交付)
-
-## Quick Start
-1. `cp .env.example .env`
-2. `pip install -r requirements.txt`
-3. `alembic upgrade head`
-4. `python scripts/init_test_account.py`
-5. `uvicorn app.main:app --reload`
-
-## 本机 SQLite 快速跑通
-如果本机没有安装 MySQL，可以直接使用 `.env.example` 中的 SQLite 配置：
+## 快速启动
 
 ```bash
 cp .env.example .env
 pip install -r requirements.txt
 alembic upgrade head
 python scripts/init_test_account.py
+python scripts/seed_prompt_templates.py
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+默认服务地址：`http://127.0.0.1:8000`
+
+接口文档：`http://127.0.0.1:8000/docs`
+
+## 本地数据库
+
+本地开发可直接使用 `.env.example` 中的 SQLite 配置，数据库文件默认生成在 `backend/jobpilot_dev.db`。
+
+部署到服务器时，建议将 `DATABASE_URL` 改为 MySQL 连接串，并按实际环境配置 `MYSQL_*`、`SECRET_KEY`、LLM API Key 和 OCR 相关参数。
+
+## 主要接口
+
+- `/api/auth`：注册、登录、登出、刷新 Token
+- `/api/users`：个人资料
+- `/api/resumes`：简历 CRUD、版本管理、模板选择
+- `/api/resume-templates`：简历模板查询、上传、管理
+- `/api/jobs`：岗位 CRUD 和多来源导入
+- `/api/applications`：投递记录与状态流转
+- `/api/matching`：简历与岗位匹配分析
+- `/api/ai`：简历生成、解析、优化和模拟面试
+- `/api/statistics`：统计分析
+- `/api/admin`：用户、日志、配置和 Prompt 管理
+
+## 常用命令
+
+```bash
+alembic upgrade head
+alembic revision --autogenerate -m "message"
+pytest
 uvicorn app.main:app --reload
 ```
 
-默认会在 `backend/jobpilot_dev.db` 生成本地数据库文件。部署到服务器时，再将 `.env` 中的
-`DATABASE_URL` 注释或改为 MySQL 连接串，并使用 `MYSQL_*` 配置。
+## 部署检查
 
-## A角色负责接口
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
-- `POST /api/auth/refresh`
-- `GET /api/auth/me`
-- `PUT /api/auth/password`
-- `GET /api/users/me`
-- `PUT /api/users/me`
-- `GET /api/admin/users`
-- `PUT /api/admin/users/{id}/status`
-- `GET /api/admin/ai-logs`
-- `GET /api/admin/ocr-logs`
-- `GET /api/admin/system-logs`
-- `GET /api/admin/system-configs`
-- `PUT /api/admin/system-configs/{key}`
+```bash
+bash scripts/post_deploy_check.sh http://127.0.0.1/health
+```
 
-## 部署验收
-- 执行：`bash scripts/post_deploy_check.sh http://127.0.0.1/health`
-- 参考：`docs/deployment_acceptance_checklist.md`
-- 故障恢复：`bash scripts/recover_services.sh`
+更多部署验收项见：`docs/deployment_acceptance_checklist.md`

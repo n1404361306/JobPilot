@@ -44,7 +44,7 @@ class OCRService:
             code=5005,
             message=(
                 "OCR 识别失败。建议优先使用可复制文字的文字版 PDF 或 Word（.docx）。"
-                "扫描版 PDF/图片需安装 Tesseract（winget install UB-Mannheim.TesseractOCR）。"
+                "扫描版 PDF/图片需要服务端配置可用的 OCR 引擎。"
                 f"详情：{detail}"
             ),
         )
@@ -232,9 +232,8 @@ class OCRService:
             raise BusinessException(
                 code=5005,
                 message=(
-                    "未找到 Tesseract 可执行文件。"
-                    "请安装：winget install UB-Mannheim.TesseractOCR，"
-                    "或在 .env 中设置 TESSERACT_CMD 指向 tesseract.exe"
+                    "服务端未找到 Tesseract 可执行文件。"
+                    "请在服务端安装 Tesseract，或在 .env 中设置 TESSERACT_CMD 指向 tesseract 可执行文件"
                 ),
             ) from exc
 
