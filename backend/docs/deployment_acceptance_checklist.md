@@ -1,31 +1,45 @@
-# 云服务器部署验收清单（A角色）
+# 云服务器部署验收记录（A角色）
 
-## 一、上线前检查
-- [ ] `.env` 已按生产环境填写，`SECRET_KEY` 已替换。
-- [ ] `alembic upgrade head` 可执行成功。
-- [ ] `admin` 测试账号可初始化。
-- [ ] Nginx 与 systemd 配置文件路径正确。
+## 一、当前验收结论
+- 验收日期：2026-06-16
+- 验收范围：本地/课程演示环境，覆盖 API、前端页面、Worker 任务入口与核心业务闭环。
+- 当前结论：项目已具备可演示闭环；真实云服务器上线时仍需按生产 `.env`、Nginx、systemd 和数据库配置重新执行验收。
 
-## 二、上线执行步骤
-1. 执行 `scripts/deploy.sh`
-2. 执行 `python scripts/init_test_account.py`
-3. 执行 `scripts/post_deploy_check.sh http://127.0.0.1/health`
+## 二、上线前检查
+- [x] `.env.example` 已提供必要配置项，生产环境需替换 `SECRET_KEY`。
+- [x] Alembic 迁移链包含认证、RBAC、AI 日志、业务表、OCR 表和演示闭环表。
+- [x] 管理员测试账号可通过 `scripts/init_test_account.py` 初始化。
+- [x] Nginx 与 systemd 配置文件已保留在 `deploy/` 目录。
 
-## 三、上线验收项
-- [ ] `jobpilot-api` 服务状态为 `active`
-- [ ] `jobpilot-celery` 服务状态为 `active`
-- [ ] 健康检查 `/health` 返回 `{"status":"ok"}`
-- [ ] 日志中无连续报错（最近20行）
-- [ ] 管理员登录接口可用
-- [ ] `GET /api/admin/system-configs` 可返回数据
+## 三、接口验收项
+- [x] `/health` 可用于健康检查。
+- [x] 认证接口覆盖注册、登录、登出、刷新、当前用户、修改密码。
+- [x] 用户侧业务接口覆盖简历、岗位、投递记录、匹配报告、统计、求职报告。
+- [x] AI 接口提供演示模式返回，并记录 AI 调用日志。
+- [x] OCR 接口保留文件上传、文本提取和任务查询。
+- [x] 自动投递接口支持投递档案、任务创建、字段预览、模拟执行和日志查询。
+- [x] 管理端接口覆盖用户、AI 日志、OCR 日志、系统日志、系统配置。
 
-## 四、异常恢复演练
-- [ ] 手动重启 `jobpilot-api` 后服务恢复
-- [ ] 手动重启 `jobpilot-celery` 后任务可消费
-- [ ] Nginx 重载后转发正常
-- [ ] 记录一次回滚流程演练（保留命令和结果）
+## 四、部署执行步骤
+1. 配置生产 `.env`。
+2. 执行 `pip install -r requirements.txt`。
+3. 执行 `alembic upgrade head`。
+4. 执行 `python scripts/init_test_account.py`。
+5. 启动 API 服务并检查 `/health`。
+6. 启动 Celery Worker 并检查 `health.echo` 演示任务。
+7. 构建前端并由 Nginx 托管 `dist`。
 
-## 五、产物留存
-- [ ] 部署验收报告（`deploy_check_report_*.md`）
-- [ ] 运行截图（服务状态、健康检查、后台页面）
-- [ ] 本次上线的提交号与迁移版本号
+## 五、运行截图清单
+- [ ] 登录/注册页面。
+- [ ] 首页仪表盘。
+- [ ] 简历生成、上传解析、编辑、预览页面。
+- [ ] 岗位导入、岗位列表、匹配报告页面。
+- [ ] 投递看板、统计、求职报告页面。
+- [ ] 管理员用户、AI 日志、OCR 日志、系统配置页面。
+
+## 六、真实上线仍需复核
+- [ ] 服务器安全组已放行 80/443。
+- [ ] MySQL、Redis、Nginx、systemd 服务状态正常。
+- [ ] 生产环境最近 20 行日志无连续报错。
+- [ ] Nginx 刷新前端路由正常。
+- [ ] 回滚点、提交号和迁移版本号已记录。

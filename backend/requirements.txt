@@ -21,3 +21,6 @@ paddlepaddle
 pytesseract
 Pillow
 PyMuPDF
+python-docx
+pytesseract
+rapidocr-onnxruntime

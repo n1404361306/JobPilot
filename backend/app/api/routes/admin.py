@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -8,10 +9,26 @@ from app.db.session import get_db
 from app.deps.auth import require_permissions
 from app.models.system_config import SystemConfig
 from app.models.system_log import AICallLog, OCRLog, SystemLog
+from app.models.prompt_template import PromptTemplate
 from app.models.user import User
 from app.schemas.admin import ConfigUpdate, UserStatusUpdate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+class PromptTemplatePayload(BaseModel):
+    template_code: str = Field(min_length=1, max_length=128)
+    template_name: str = Field(min_length=1, max_length=128)
+    template_content: str = Field(min_length=1)
+    version: int = 1
+    enabled: bool = True
+
+
+class DeliverySitePayload(BaseModel):
+    site_name: str = Field(min_length=1, max_length=128)
+    login_url: str | None = Field(default=None, max_length=512)
+    enabled: bool = True
+    rate_limit_note: str | None = None
 
 
 @router.get("/users")
@@ -113,3 +130,69 @@ def update_system_config(
     db.add(record)
     db.commit()
     return ok(message="config updated")
+
+
+@router.get("/prompts")
+def list_prompts(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permissions(["admin:configs:read"])),
+):
+    prompts = db.scalars(select(PromptTemplate).order_by(PromptTemplate.id.desc()).limit(200)).all()
+    return ok(
+        [
+            {
+                "id": item.id,
+                "template_code": item.template_code,
+                "template_name": item.template_name,
+                "template_content": item.template_content,
+                "version": item.version,
+                "enabled": item.enabled,
+                "created_at": item.created_at,
+                "updated_at": item.updated_at,
+            }
+            for item in prompts
+        ]
+    )
+
+
+@router.post("/prompts")
+def create_prompt(
+    payload: PromptTemplatePayload,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permissions(["admin:configs:write"])),
+):
+    prompt = PromptTemplate(**payload.model_dump())
+    db.add(prompt)
+    db.commit()
+    db.refresh(prompt)
+    return ok({"id": prompt.id}, "prompt created")
+
+
+@router.get("/delivery-sites")
+def list_delivery_sites(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permissions(["admin:configs:read"])),
+):
+    record = db.scalar(select(SystemConfig).where(SystemConfig.config_key == "delivery_sites"))
+    if not record or not record.config_value:
+        return ok([])
+    import json
+
+    return ok(json.loads(record.config_value))
+
+
+@router.put("/delivery-sites")
+def update_delivery_sites(
+    payload: list[DeliverySitePayload],
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permissions(["admin:configs:write"])),
+):
+    import json
+
+    record = db.scalar(select(SystemConfig).where(SystemConfig.config_key == "delivery_sites"))
+    if not record:
+        record = SystemConfig(config_key="delivery_sites", config_value="[]")
+    record.config_value = json.dumps([item.model_dump() for item in payload], ensure_ascii=False)
+    db.add(record)
+    db.commit()
+    return ok(message="delivery sites updated")

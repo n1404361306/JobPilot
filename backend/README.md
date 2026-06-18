@@ -47,6 +47,20 @@ conda activate JobPilotBack
 4. `python scripts/init_test_account.py`
 5. `uvicorn app.main:app --reload`
 
+## 本机 SQLite 快速跑通
+如果本机没有安装 MySQL，可以直接使用 `.env.example` 中的 SQLite 配置：
+
+```bash
+cp .env.example .env
+pip install -r requirements.txt
+alembic upgrade head
+python scripts/init_test_account.py
+uvicorn app.main:app --reload
+```
+
+默认会在 `backend/jobpilot_dev.db` 生成本地数据库文件。部署到服务器时，再将 `.env` 中的
+`DATABASE_URL` 注释或改为 MySQL 连接串，并使用 `MYSQL_*` 配置。
+
 ## A角色负责接口
 - `POST /api/auth/register`
 - `POST /api/auth/login`

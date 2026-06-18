@@ -33,7 +33,7 @@ export function buildDashboardMetrics(resumes: Resume[], jobs: Job[], applicatio
     defaultResumeCount: resumes.filter((resume) => resume.is_default).length,
     activeJobCount: jobs.filter((job) => job.status === "active").length,
     applicationCount: applications.length,
-    interviewCount: summary.interview,
+    interviewCount: summary.interview + summary.tech_first + summary.tech_second + summary.hr_interview,
     offerCount: summary.offer
   };
 }

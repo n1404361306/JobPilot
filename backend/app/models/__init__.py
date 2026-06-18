@@ -1,4 +1,16 @@
-from app.models.business import Application, Job, Resume, ResumeTemplate
+from app.models.business import (
+    Application,
+    ApplicationStatusHistory,
+    DeliveryProfile,
+    DeliveryTask,
+    DeliveryTaskLog,
+    Job,
+    JobSearchReport,
+    MatchReport,
+    Resume,
+    ResumeTemplate,
+    ResumeVersion,
+)
 from app.models.permission import Permission, RolePermission
 from app.models.role import Role
 from app.models.system_config import SystemConfig
@@ -21,9 +33,16 @@ __all__ = [
     "SystemLog",
     "PromptTemplate",
     "Resume",
+    "ResumeVersion",
     "ResumeTemplate",
     "Job",
     "Application",
+    "ApplicationStatusHistory",
+    "MatchReport",
+    "JobSearchReport",
+    "DeliveryProfile",
+    "DeliveryTask",
+    "DeliveryTaskLog",
     "FileResource",
     "OCRTask",
 ]

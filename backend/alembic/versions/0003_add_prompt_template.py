@@ -23,16 +23,11 @@ def upgrade() -> None:
         sa.Column("enabled",sa.Boolean(),nullable=False,default=True),
         sa.Column("created_at",sa.DateTime(),nullable=False),
         sa.Column("updated_at",sa.DateTime(),nullable=False),
+        sa.UniqueConstraint("template_code", "version", name="uq_prompt_template_code_version"),
     )
 
     op.create_index("ix_prompt_template_code","prompt_template",["template_code"])
-    op.create_unique_constraint(
-        "uq_prompt_template_code_version",
-        "prompt_template",
-        ["template_code","version"],
-        )
     
 def downgrade() -> None:
-        op.drop_constraint("uq_prompt_template_code_version", "prompt_template", type="unique")
         op.drop_index("ix_prompt_template_code", table_name="prompt_template")
         op.drop_table("prompt_template")

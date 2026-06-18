@@ -55,7 +55,7 @@ export const routes: RouteRecordRaw[] = [
     children: [
       { path: "", name: "dashboard", component: () => import("@/views/dashboard/DashboardView.vue"), meta: { title: "首页仪表盘" } },
       { path: "resumes/generate", name: "resume-generate", component: () => import("@/views/resumes/ResumeGenerateView.vue"), meta: { title: "文字生成简历" } },
-      { path: "resumes/upload", name: "resume-upload", component: () => import("@/views/resumes/ResumeUploadView.vue"), meta: { title: "简历上传解析" } },
+      { path: "resumes/upload", name: "resume-upload", component: () => import("@/views/resumes/ResumeUploadView.vue"), meta: { title: "文件生成简历" } },
       { path: "resumes", name: "resume-list", component: () => import("@/views/resumes/ResumeListView.vue"), meta: { title: "简历列表" } },
       { path: "resumes/new", name: "resume-new", component: () => import("@/views/resumes/ResumeEditorView.vue"), meta: { title: "新建简历" } },
       { path: "resumes/:id/edit", name: "resume-edit", component: () => import("@/views/resumes/ResumeEditorView.vue"), meta: { title: "简历编辑器" } },
@@ -71,7 +71,7 @@ export const routes: RouteRecordRaw[] = [
       { path: "delivery", name: "auto-delivery", component: () => import("@/views/delivery/AutoDeliveryView.vue"), meta: { title: "自动投递" } },
       { path: "applications", name: "application-board", component: () => import("@/views/applications/ApplicationBoardView.vue"), meta: { title: "投递看板" } },
       { path: "statistics", name: "statistics", component: () => import("@/views/statistics/StatisticsView.vue"), meta: { title: "数据统计" } },
-      { path: "reports", name: "reports", component: () => import("@/views/reports/ReportsView.vue"), meta: { title: "求职报告" } },
+      { path: "reports", name: "reports", component: () => import("@/views/reports/ReportsView.vue"), meta: { title: "AI 总结" } },
       { path: "admin/users", name: "admin-users", component: () => import("@/views/admin/AdminUsersView.vue"), meta: { title: "用户管理", adminOnly: true } },
       { path: "admin/templates", name: "admin-templates", component: () => import("@/views/admin/AdminTemplatesView.vue"), meta: { title: "模板管理", adminOnly: true } },
       { path: "admin/prompts", name: "admin-prompts", component: () => import("@/views/admin/AdminPromptsView.vue"), meta: { title: "Prompt 管理", adminOnly: true } },
