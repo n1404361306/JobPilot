@@ -319,6 +319,165 @@ class ResumeTemplateChatRequest(BaseModel):
     current_template: str | None = None
 
 
+class ResumeExperienceBase(BaseModel):
+    resume_version_id: int
+    description: str | None = None
+
+
+class EducationExperienceCreate(ResumeExperienceBase):
+    school: str = Field(min_length=1, max_length=128)
+    major: str | None = Field(default=None, max_length=128)
+    degree: str | None = Field(default=None, max_length=64)
+    start_date: str | None = Field(default=None, max_length=32)
+    end_date: str | None = Field(default=None, max_length=32)
+
+
+class EducationExperienceOut(EducationExperienceCreate):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProjectExperienceCreate(ResumeExperienceBase):
+    project_name: str = Field(min_length=1, max_length=128)
+    role: str | None = Field(default=None, max_length=128)
+    technologies: str | None = Field(default=None, max_length=255)
+    start_date: str | None = Field(default=None, max_length=32)
+    end_date: str | None = Field(default=None, max_length=32)
+
+
+class ProjectExperienceOut(ProjectExperienceCreate):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class InternshipExperienceCreate(ResumeExperienceBase):
+    company: str = Field(min_length=1, max_length=128)
+    position: str | None = Field(default=None, max_length=128)
+    start_date: str | None = Field(default=None, max_length=32)
+    end_date: str | None = Field(default=None, max_length=32)
+
+
+class InternshipExperienceOut(InternshipExperienceCreate):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class ResearchExperienceCreate(ResumeExperienceBase):
+    title: str = Field(min_length=1, max_length=128)
+    role: str | None = Field(default=None, max_length=128)
+    start_date: str | None = Field(default=None, max_length=32)
+    end_date: str | None = Field(default=None, max_length=32)
+
+
+class ResearchExperienceOut(ResearchExperienceCreate):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class SkillCreate(ResumeExperienceBase):
+    category: str | None = Field(default=None, max_length=64)
+    name: str = Field(min_length=1, max_length=128)
+    proficiency: str | None = Field(default=None, max_length=64)
+
+
+class SkillOut(SkillCreate):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class AwardCreate(ResumeExperienceBase):
+    name: str = Field(min_length=1, max_length=128)
+    issuer: str | None = Field(default=None, max_length=128)
+    award_date: str | None = Field(default=None, max_length=32)
+
+
+class AwardOut(AwardCreate):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class ResumeCompletenessOut(BaseModel):
+    resume_id: int
+    score: int
+    filled_items: list[str]
+    missing_items: list[str]
+
+
+class ResumeRenderRecordOut(BaseModel):
+    id: int
+    user_id: int
+    resume_version_id: int
+    template_id: int | None
+    output_type: str
+    output_url: str | None
+    status: str
+    created_at: datetime
+
+
+class CompanyCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    website: str | None = Field(default=None, max_length=512)
+    location: str | None = Field(default=None, max_length=128)
+    description: str | None = None
+
+
+class CompanyOut(CompanyCreate):
+    id: int
+    user_id: int | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class JobRequirementCreate(BaseModel):
+    job_id: int
+    responsibilities: str | None = None
+    requirements: str | None = None
+    keywords: str | None = Field(default=None, max_length=512)
+
+
+class JobRequirementOut(JobRequirementCreate):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class JobTagCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    color: str | None = Field(default=None, max_length=32)
+
+
+class JobTagOut(JobTagCreate):
+    id: int
+    user_id: int
+    created_at: datetime
+
+
+class JobImportTaskOut(BaseModel):
+    id: int
+    user_id: int
+    source_type: str
+    source_url: str | None
+    status: str
+    raw_text: str | None
+    parsed_count: int
+    error_message: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
 class AIResultOut(BaseModel):
     title: str
     content: str
