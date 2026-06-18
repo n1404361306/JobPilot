@@ -46,3 +46,33 @@ __all__ = [
     "FileResource",
     "OCRTask",
 ]
+
+from app.models.business import (
+    Award,
+    Company,
+    EducationExperience,
+    InternshipExperience,
+    JobImportTask,
+    JobRequirement,
+    JobTag,
+    JobTagRelation,
+    ProjectExperience,
+    ResearchExperience,
+    ResumeRenderRecord,
+    Skill,
+)
+
+__all__ += [
+    "EducationExperience",
+    "ProjectExperience",
+    "InternshipExperience",
+    "ResearchExperience",
+    "Skill",
+    "Award",
+    "ResumeRenderRecord",
+    "Company",
+    "JobRequirement",
+    "JobTag",
+    "JobTagRelation",
+    "JobImportTask",
+]

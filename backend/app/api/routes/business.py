@@ -1960,3 +1960,258 @@ def list_delivery_task_logs(
         .order_by(DeliveryTaskLog.id.desc())
     ).all()
     return ok([_dump(log, DeliveryTaskLogOut) for log in logs])
+
+
+from app.models.business import ResumeRenderRecord
+from app.schemas.business import ResumeCompletenessOut, ResumeRenderRecordOut
+
+
+def _resume_snapshot(content: str) -> dict:
+    marker_index = content.rfind(RESUME_FORM_MARKER)
+    if marker_index == -1:
+        return {}
+    json_start = content.find("\n", marker_index) + 1
+    json_end = content.rfind("\n-->")
+    if json_start <= 0 or json_end <= json_start:
+        return {}
+    try:
+        parsed = json.loads(content[json_start:json_end])
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _has_text(value) -> bool:
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, dict):
+        return any(_has_text(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_has_text(item) for item in value)
+    return value is not None
+
+
+def _resume_completeness(resume: Resume) -> dict:
+    snapshot = _resume_snapshot(resume.content)
+    checks = {
+        "简历标题": resume.title,
+        "正文内容": resume.content,
+        "基本信息": snapshot.get("basic_info") if snapshot else "",
+        "求职意向": snapshot.get("job_intention") if snapshot else "",
+        "教育经历": snapshot.get("education") if snapshot else "",
+        "技能": snapshot.get("skillsText") if snapshot else "",
+        "项目经历": snapshot.get("projects") if snapshot else "",
+        "实习经历": snapshot.get("internships") if snapshot else "",
+        "自我评价": snapshot.get("self_evaluation") if snapshot else "",
+        "附件或导入来源": resume.file_url or "",
+    }
+    filled_items = [name for name, value in checks.items() if _has_text(value)]
+    missing_items = [name for name, value in checks.items() if not _has_text(value)]
+    score = round(len(filled_items) / len(checks) * 100)
+    return {
+        "resume_id": resume.id,
+        "score": score,
+        "filled_items": filled_items,
+        "missing_items": missing_items,
+    }
+
+
+@router.get("/resumes/{resume_id}/completeness")
+def get_resume_completeness(
+    resume_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    resume = _get_resume(db, resume_id, user.id)
+    return ok(ResumeCompletenessOut(**_resume_completeness(resume)).model_dump())
+
+
+@router.delete("/resume-versions/{version_id}")
+def delete_resume_version(
+    version_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    version = _get_version(db, version_id, user.id)
+    db.delete(version)
+    db.commit()
+    return ok(message="resume version deleted")
+
+
+@router.get("/resume-templates/my")
+def list_my_resume_templates(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    templates = db.scalars(
+        select(ResumeTemplate)
+        .where(ResumeTemplate.user_id == user.id)
+        .order_by(ResumeTemplate.id.desc())
+    ).all()
+    return ok([_dump(template, ResumeTemplateOut) for template in templates])
+
+
+@router.put("/jobs/{job_id}")
+def update_job_with_extended_fields(
+    job_id: int,
+    payload: JobUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    job = _get_job(db, job_id, user.id)
+    _set_fields(
+        job,
+        payload,
+        (
+            "title",
+            "company",
+            "location",
+            "salary_range",
+            "source_url",
+            "source_type",
+            "job_type",
+            "deadline",
+            "tags",
+            "is_favorite",
+            "import_batch_id",
+            "description",
+            "status",
+        ),
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    return ok(_dump(job, JobOut), "job updated")
+
+
+@router.get("/applications/{application_id}/status-history")
+def list_application_status_history(
+    application_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return list_application_history(application_id, db, user)
+
+
+@router.post("/resume-versions/{version_id}/render")
+def render_resume_version_with_record(
+    version_id: int,
+    payload: ResumeRenderRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    version = _get_version(db, version_id, user.id)
+    template = db.get(ResumeTemplate, payload.template_id) if payload.template_id else None
+    if template and not _can_use_template(template, user):
+        raise BusinessException(code=4031, message="template not allowed")
+    title = template.name if template else "默认简历模板"
+    html = (
+        Template(template.content).render(content=version.content, resume_content=version.content, title=title)
+        if template
+        else f"<article class='resume-preview'><h1>{title}</h1><pre>{version.content}</pre></article>"
+    )
+    record = ResumeRenderRecord(
+        user_id=user.id,
+        resume_version_id=version.id,
+        template_id=payload.template_id,
+        output_type="html",
+        output_url=None,
+        status="success",
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return ok(
+        {
+            "html": html,
+            "version_id": version.id,
+            "template_id": payload.template_id,
+            "render_record": _dump(record, ResumeRenderRecordOut),
+        }
+    )
+
+
+@router.post("/resume-versions/{version_id}/export-pdf")
+def export_resume_version_pdf_with_record(
+    version_id: int,
+    payload: ResumeRenderRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    version = _get_version(db, version_id, user.id)
+    export_dir = Path("uploads") / "exports" / str(user.id)
+    export_dir.mkdir(parents=True, exist_ok=True)
+    pdf_path = export_dir / f"resume-version-{version.id}.pdf"
+    import fitz
+
+    doc = fitz.open()
+    page = doc.new_page(width=595, height=842)
+    page.insert_textbox(
+        fitz.Rect(42, 42, 553, 800),
+        version.content.replace("\r\n", "\n"),
+        fontsize=10,
+        fontname="helv",
+        lineheight=1.25,
+    )
+    doc.save(str(pdf_path))
+    doc.close()
+    download_url = f"/uploads/exports/{user.id}/resume-version-{version.id}.pdf"
+    record = ResumeRenderRecord(
+        user_id=user.id,
+        resume_version_id=version.id,
+        template_id=payload.template_id,
+        output_type="pdf",
+        output_url=download_url,
+        status="success",
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return ok(
+        {
+            "task_status": "success",
+            "download_url": download_url,
+            "file_path": str(pdf_path),
+            "template_id": payload.template_id,
+            "render_record": _dump(record, ResumeRenderRecordOut),
+        },
+        "pdf exported",
+    )
+
+
+def _promote_latest_route(path: str, method: str) -> None:
+    matches = [
+        index for index, route in enumerate(router.routes)
+        if getattr(route, "path", None) == path and method.upper() in getattr(route, "methods", set())
+    ]
+    if len(matches) < 2:
+        return
+    latest_index = matches[-1]
+    first_index = matches[0]
+    route = router.routes.pop(latest_index)
+    router.routes.insert(first_index, route)
+
+
+def _promote_route_before(path: str, before_path: str, method: str) -> None:
+    target_indexes = [
+        index for index, route in enumerate(router.routes)
+        if getattr(route, "path", None) == path and method.upper() in getattr(route, "methods", set())
+    ]
+    before_indexes = [
+        index for index, route in enumerate(router.routes)
+        if getattr(route, "path", None) == before_path and method.upper() in getattr(route, "methods", set())
+    ]
+    if not target_indexes or not before_indexes:
+        return
+    target_index = target_indexes[-1]
+    before_index = before_indexes[0]
+    if target_index < before_index:
+        return
+    route = router.routes.pop(target_index)
+    router.routes.insert(before_index, route)
+
+
+_promote_latest_route("/jobs/{job_id}", "PUT")
+_promote_latest_route("/resume-versions/{version_id}/render", "POST")
+_promote_latest_route("/resume-versions/{version_id}/export-pdf", "POST")
+_promote_route_before("/resume-templates/my", "/resume-templates/{template_id}", "GET")
