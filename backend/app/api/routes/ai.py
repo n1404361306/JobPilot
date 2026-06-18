@@ -622,28 +622,6 @@ async def generate_weekly_report(
     user: User = Depends(get_current_user),
 ):
     content = await _generate_weekly_report_with_ai(db, user)
-    report = JobSearchReport(user_id=user.id, title="AI 求职总结", content=content, report_type="weekly")
-    db.add(report)
-    db.commit()
-    db.refresh(report)
-    return ok(
-        {
-            "id": report.id,
-            "user_id": report.user_id,
-            "title": report.title,
-            "content": report.content,
-            "report_type": report.report_type,
-            "created_at": report.created_at,
-        },
-        "weekly report created",
-    )
-    content = await _call_ai(
-        db,
-        user_id=user.id,
-        prompt_type="weekly_report",
-        system_prompt="你是求职复盘顾问。请生成一份中文求职周报，包含进展、问题、下周计划和提醒。",
-        user_prompt="请基于当前系统中的求职数据生成一份简洁周报；如果数据不足，请给出下一步建议。",
-    )
     report = JobSearchReport(user_id=user.id, title="AI 求职周报", content=content, report_type="weekly")
     db.add(report)
     db.commit()
@@ -659,6 +637,29 @@ async def generate_weekly_report(
         },
         "weekly report created",
     )
+
+    # content = await _call_ai(
+    #     db,
+    #     user_id=user.id,
+    #     prompt_type="weekly_report",
+    #     system_prompt="你是求职复盘顾问。请生成一份中文求职周报，包含进展、问题、下周计划和提醒。",
+    #     user_prompt="请基于当前系统中的求职数据生成一份简洁周报；如果数据不足，请给出下一步建议。",
+    # )
+    # report = JobSearchReport(user_id=user.id, title="AI 求职周报", content=content, report_type="weekly")
+    # db.add(report)
+    # db.commit()
+    # db.refresh(report)
+    # return ok(
+    #     {
+    #         "id": report.id,
+    #         "user_id": report.user_id,
+    #         "title": report.title,
+    #         "content": report.content,
+    #         "report_type": report.report_type,
+    #         "created_at": report.created_at,
+    #     },
+    #     "weekly report created",
+    # )
 
 @router.post("/resumes/optimize-async")
 async def optimize_resume_async(

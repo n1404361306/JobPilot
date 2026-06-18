@@ -24,3 +24,4 @@ PyMuPDF
 python-docx
 pytesseract
 rapidocr-onnxruntime
+playwright

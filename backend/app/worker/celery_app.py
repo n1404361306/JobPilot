@@ -36,6 +36,7 @@ def echo(value: str) -> str:
 
 from app.worker.tasks import ocr_tasks
 # from app.worker.tasks import delivery_tasks
+from app.worker.tasks import delivery_tasks
 from app.worker.tasks import export_tasks
 from app.worker.tasks import ai_tasks
 

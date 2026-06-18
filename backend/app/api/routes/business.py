@@ -72,6 +72,9 @@ from app.modules.ai.prompt_service import PromptService
 
 # from app.worker.tasks.delivery_tasks import execute_delivery
 
+from app.modules.delivery.execution_service import DeliveryExecutionService
+from app.worker.tasks.delivery_tasks import execute_delivery
+
 from celery.result import AsyncResult
 from app.worker.celery_app import celery_app
 from app.worker.tasks.export_tasks import export_pdf as export_pdf_task
@@ -1858,17 +1861,17 @@ async def _generate_weekly_report_with_ai(db: Session, user: User) -> str:
     return _strip_markdown(raw)
 
 
-@router.post("/reports/weekly")
-async def create_weekly_report(
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    content = await _generate_weekly_report_with_ai(db, user)
-    report = JobSearchReport(user_id=user.id, title="AI 求职总结", content=content, report_type="weekly")
-    db.add(report)
-    db.commit()
-    db.refresh(report)
-    return ok(_dump(report, ReportOut), "weekly report created")
+# @router.post("/reports/weekly")
+# async def create_weekly_report(
+#     db: Session = Depends(get_db),
+#     user: User = Depends(get_current_user),
+# ):
+#     content = await _generate_weekly_report_with_ai(db, user)
+#     report = JobSearchReport(user_id=user.id, title="AI 求职总结", content=content, report_type="weekly")
+#     db.add(report)
+#     db.commit()
+#     db.refresh(report)
+#     return ok(_dump(report, ReportOut), "weekly report created")
 
 
 @router.delete("/reports/{report_id}")
@@ -1932,32 +1935,65 @@ def create_delivery_task(
     return ok(_dump(task, DeliveryTaskOut), "delivery task created")
 
 
+# @router.post("/delivery/tasks/{task_id}/preview")
+# def preview_delivery_task(
+#     task_id: int,
+#     db: Session = Depends(get_db),
+#     user: User = Depends(get_current_user),
+# ):
+#     task = _get_delivery_task(db, task_id, user.id)
+#     job = _get_job(db, task.job_id, user.id)
+#     profile = db.scalar(select(DeliveryProfile).where(DeliveryProfile.user_id == user.id))
+#     preview = {
+#         "site_name": task.site_name or job.company,
+#         "target_url": task.target_url or job.source_url,
+#         "fields": {
+#             "name": profile.real_name if profile else user.username,
+#             "email": profile.email if profile and profile.email else user.email,
+#             "phone": profile.phone if profile else "",
+#             "job": job.title,
+#         },
+#     }
+#     task.preview_data = json.dumps(preview, ensure_ascii=False)
+#     task.task_status = "previewed"
+#     db.add(task)
+#     db.commit()
+#     db.refresh(task)
+#     return ok({"task": _dump(task, DeliveryTaskOut), "preview": preview})
+
 @router.post("/delivery/tasks/{task_id}/preview")
 def preview_delivery_task(
     task_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    task = _get_delivery_task(db, task_id, user.id)
-    job = _get_job(db, task.job_id, user.id)
-    profile = db.scalar(select(DeliveryProfile).where(DeliveryProfile.user_id == user.id))
-    preview = {
-        "site_name": task.site_name or job.company,
-        "target_url": task.target_url or job.source_url,
-        "fields": {
-            "name": profile.real_name if profile else user.username,
-            "email": profile.email if profile and profile.email else user.email,
-            "phone": profile.phone if profile else "",
-            "job": job.title,
-        },
-    }
-    task.preview_data = json.dumps(preview, ensure_ascii=False)
-    task.task_status = "previewed"
-    db.add(task)
-    db.commit()
-    db.refresh(task)
+    service = DeliveryExecutionService(db)
+    task, preview = service.build_preview(task_id=task_id, user_id=user.id)
     return ok({"task": _dump(task, DeliveryTaskOut), "preview": preview})
 
+# @router.post("/delivery/tasks/{task_id}/execute")
+# def execute_delivery_task(
+#     task_id: int,
+#     db: Session = Depends(get_db),
+#     user: User = Depends(get_current_user),
+# ):
+#     task = _get_delivery_task(db, task_id, user.id)
+#     if not task.preview_data:
+#         preview_delivery_task(task_id, db, user)
+#         task = _get_delivery_task(db, task_id, user.id)
+#     task.task_status = "success"
+#     db.add(
+#         DeliveryTaskLog(
+#             task_id=task.id,
+#             user_id=user.id,
+#             level="info",
+#             message="已生成字段清单，当前任务未访问真实招聘网站。",
+#         )
+#     )
+#     db.add(task)
+#     db.commit()
+#     db.refresh(task)
+#     return ok(_dump(task, DeliveryTaskOut), "delivery task executed")
 
 @router.post("/delivery/tasks/{task_id}/execute")
 def execute_delivery_task(
@@ -1966,23 +2002,28 @@ def execute_delivery_task(
     user: User = Depends(get_current_user),
 ):
     task = _get_delivery_task(db, task_id, user.id)
+
+    if task.task_status in {"pending", "running"}:
+        raise BusinessException(code=4009, message="delivery task already running")
+
     if not task.preview_data:
-        preview_delivery_task(task_id, db, user)
+        DeliveryExecutionService(db).build_preview(task_id=task_id, user_id=user.id)
         task = _get_delivery_task(db, task_id, user.id)
-    task.task_status = "success"
-    db.add(
-        DeliveryTaskLog(
-            task_id=task.id,
-            user_id=user.id,
-            level="info",
-            message="已生成字段清单，当前任务未访问真实招聘网站。",
-        )
-    )
+
+    task.task_status = "pending"
     db.add(task)
     db.commit()
-    db.refresh(task)
-    return ok(_dump(task, DeliveryTaskOut), "delivery task executed")
 
+    async_result = execute_delivery.delay(task.id, user.id)
+    db.refresh(task)
+
+    return ok(
+        {
+            **_dump(task, DeliveryTaskOut),
+            "worker_task_id": async_result.id,
+        },
+        "delivery task queued",
+    )
 # @router.post("/delivery/tasks/{task_id}/execute")
 # def execute_delivery_task(
 #     task_id: int,
@@ -1999,6 +2040,31 @@ def execute_delivery_task(
 #     db.refresh(task)
 #     return ok(_dump(task, DeliveryTaskOut), "delivery task queued")
 
+@router.get("/delivery/tasks/{task_id}")
+def get_delivery_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    task = _get_delivery_task(db, task_id, user.id)
+    return ok(_dump(task, DeliveryTaskOut))
+
+
+@router.get("/delivery/tasks/{task_id}/execute/tasks/{worker_task_id}")
+def get_delivery_execute_task(
+    task_id: int,
+    worker_task_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _get_delivery_task(db, task_id, user.id)
+    result = AsyncResult(worker_task_id, app=celery_app)
+    if not result.ready():
+        return ok({"task_status": "running", "worker_task_id": worker_task_id})
+
+    payload = result.get(propagate=False)
+    task = _get_delivery_task(db, task_id, user.id)
+    return ok({**payload, "task": _dump(task, DeliveryTaskOut)})
 
 @router.get("/delivery/tasks/{task_id}/logs")
 def list_delivery_task_logs(
