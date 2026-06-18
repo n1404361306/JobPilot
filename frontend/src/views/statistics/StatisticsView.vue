@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="数据统计" description="展示投递、岗位、匹配报告和转化率等课程文档要求的统计指标。" />
+    <PageHeader title="数据统计" description="展示投递、岗位、匹配报告和转化率等核心运营指标。" />
 
     <div class="metric-grid">
       <MetricCard label="简历" :value="overview?.resume_count || 0" hint="简历数量" tone="green" />

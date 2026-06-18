@@ -141,7 +141,7 @@ function sectionItems(items: unknown[], fields: string[]) {
 }
 
 function sanitizeTemplate(html: string) {
-  return html
+  const cleaned = html
     .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
     .replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi, "")
     .replace(/<object[\s\S]*?>[\s\S]*?<\/object>/gi, "")
@@ -149,6 +149,77 @@ function sanitizeTemplate(html: string) {
     .replace(/\son\w+="[^"]*"/gi, "")
     .replace(/\son\w+='[^']*'/gi, "")
     .replace(/javascript:/gi, "");
+  return cleaned.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (_match, css: string) => {
+    return `<style>${scopeCssToTemplate(css)}</style>`;
+  });
+}
+
+function splitSelectorList(selectorText: string) {
+  const selectors: string[] = [];
+  let current = "";
+  let depth = 0;
+  for (const char of selectorText) {
+    if (char === "(" || char === "[") depth += 1;
+    if (char === ")" || char === "]") depth = Math.max(0, depth - 1);
+    if (char === "," && depth === 0) {
+      selectors.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  if (current.trim()) selectors.push(current.trim());
+  return selectors;
+}
+
+function scopeSelector(selector: string) {
+  const trimmed = selector.trim();
+  if (!trimmed || trimmed.startsWith(".custom-template")) return trimmed;
+  if (/^(html|body|:root)([\s.#:[>+~]|$)/i.test(trimmed)) {
+    return trimmed.replace(/^(html|body|:root)/i, ".custom-template");
+  }
+  return `.custom-template ${trimmed}`;
+}
+
+function scopeCssToTemplate(css: string) {
+  const source = css.replace(/@import[^;]+;/gi, "").replace(/@page\s*{[\s\S]*?}/gi, "");
+  let output = "";
+  let index = 0;
+  while (index < source.length) {
+    const openIndex = source.indexOf("{", index);
+    if (openIndex === -1) {
+      output += source.slice(index);
+      break;
+    }
+
+    const selectorText = source.slice(index, openIndex).trim();
+    let depth = 1;
+    let closeIndex = openIndex + 1;
+    while (closeIndex < source.length && depth > 0) {
+      const char = source[closeIndex];
+      if (char === "{") depth += 1;
+      if (char === "}") depth -= 1;
+      closeIndex += 1;
+    }
+
+    const block = source.slice(openIndex + 1, closeIndex - 1);
+    const lowerSelector = selectorText.toLowerCase();
+    if (lowerSelector.startsWith("@media") || lowerSelector.startsWith("@supports") || lowerSelector.startsWith("@container")) {
+      output += `${selectorText}{${scopeCssToTemplate(block)}}`;
+    } else if (lowerSelector.startsWith("@keyframes") || lowerSelector.startsWith("@font-face")) {
+      output += `${selectorText}{${block}}`;
+    } else if (selectorText.startsWith("@")) {
+      output += "";
+    } else {
+      const scopedSelector = splitSelectorList(selectorText).map(scopeSelector).filter(Boolean).join(", ");
+      if (scopedSelector) {
+        output += `${scopedSelector}{${block}}`;
+      }
+    }
+
+    index = closeIndex;
+  }
+  return output;
 }
 
 function renderCustomTemplate(template: string, snapshot: ResumeFormSnapshot) {

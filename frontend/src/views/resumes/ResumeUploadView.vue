@@ -44,7 +44,7 @@
           type="info"
           :closable="false"
           title="文件说明"
-          description="PDF 优先提取文字层；扫描版 PDF 和图片需要本机 OCR 环境。Word 仅支持 .docx，也可上传 TXT/MD 先跑通演示链路。"
+          description="PDF 优先提取文字层；扫描版 PDF 和图片会上传到服务端进行 OCR。Word 仅支持 .docx，也可上传 TXT/MD 进行快速解析。"
         />
 
         <el-collapse v-if="extractInfo.sourceType" class="extract-info">

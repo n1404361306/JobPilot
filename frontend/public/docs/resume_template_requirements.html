@@ -5,19 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>用户自定义简历模板要求</title>
   <style>
-    :root {
-      color-scheme: light;
-    }
-
     body {
       margin: 0;
       padding: 32px 20px 48px;
       font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
-      line-height: 1.7;
+      line-height: 1.75;
       color: #1f2937;
       background: #f8fafc;
     }
-
     main {
       max-width: 920px;
       margin: 0 auto;
@@ -27,49 +22,116 @@
       background: #fff;
       box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
     }
-
-    h1 {
-      margin: 0 0 8px;
-      font-size: 28px;
-    }
-
-    .subtitle {
-      margin: 0 0 24px;
-      color: #6b7280;
-      font-size: 14px;
-    }
-
-    .doc-body {
-      white-space: pre-wrap;
-      font-size: 15px;
-    }
-
-    .error {
-      color: #dc2626;
-    }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    h2 { margin-top: 28px; padding-top: 6px; font-size: 20px; }
+    h3 { margin-top: 18px; font-size: 16px; }
+    p, li { font-size: 15px; }
+    .subtitle { margin: 0 0 24px; color: #6b7280; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 14px; }
+    th, td { border: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f3f4f6; }
+    code { padding: 2px 5px; border-radius: 4px; background: #f3f4f6; }
+    pre { overflow: auto; padding: 14px; border-radius: 8px; background: #111827; color: #e5e7eb; }
+    pre code { padding: 0; background: transparent; color: inherit; }
   </style>
 </head>
 <body>
   <main>
     <h1>用户自定义简历模板要求</h1>
     <p class="subtitle">格式、占位符、接口与可见性规则说明</p>
-    <div id="content" class="doc-body">正在加载文档…</div>
+
+    <h2>1. 模板格式</h2>
+    <ul>
+      <li>支持文件类型：<code>.html</code>、<code>.htm</code>、<code>.txt</code></li>
+      <li>编码：UTF-8</li>
+      <li>建议大小：不超过 256KB</li>
+      <li>模板内容建议是一段完整或局部 HTML，也可以是纯文本</li>
+      <li>模板通过 <code>{{变量名}}</code> 占位符读取简历表单数据</li>
+    </ul>
+
+    <h3>禁止内容</h3>
+    <ul>
+      <li><code>&lt;script&gt;</code>、<code>&lt;iframe&gt;</code>、<code>&lt;object&gt;</code>、<code>&lt;embed&gt;</code></li>
+      <li><code>javascript:</code> 链接</li>
+      <li><code>onclick</code>、<code>onload</code>、<code>onerror</code> 等事件脚本</li>
+      <li>外部不可信脚本或会自动执行的代码</li>
+    </ul>
+
+    <h2>2. 常用占位符</h2>
+    <table>
+      <thead><tr><th>占位符</th><th>含义</th></tr></thead>
+      <tbody>
+        <tr><td><code>{{name}}</code> / <code>{{basic_info.name}}</code></td><td>姓名</td></tr>
+        <tr><td><code>{{phone}}</code> / <code>{{basic_info.phone}}</code></td><td>电话</td></tr>
+        <tr><td><code>{{email}}</code> / <code>{{basic_info.email}}</code></td><td>邮箱</td></tr>
+        <tr><td><code>{{github}}</code></td><td>GitHub</td></tr>
+        <tr><td><code>{{website}}</code></td><td>个人网站</td></tr>
+        <tr><td><code>{{location}}</code></td><td>所在地</td></tr>
+        <tr><td><code>{{photo}}</code> / <code>{{basic_info.photo}}</code></td><td>上传头像的 data URL</td></tr>
+        <tr><td><code>{{job_intention}}</code></td><td>求职意向</td></tr>
+        <tr><td><code>{{summary}}</code></td><td>个人简介</td></tr>
+        <tr><td><code>{{skills}}</code></td><td>专业技能，输出为列表项</td></tr>
+        <tr><td><code>{{education}}</code></td><td>教育经历，输出为 HTML 分段</td></tr>
+        <tr><td><code>{{internships}}</code></td><td>实习经历，输出为 HTML 分段</td></tr>
+        <tr><td><code>{{projects}}</code></td><td>项目经历，输出为 HTML 分段</td></tr>
+        <tr><td><code>{{research}}</code></td><td>科研经历</td></tr>
+        <tr><td><code>{{awards}}</code></td><td>获奖经历，输出为列表项</td></tr>
+        <tr><td><code>{{certificates}}</code></td><td>证书</td></tr>
+        <tr><td><code>{{self_evaluation}}</code></td><td>个人评价</td></tr>
+      </tbody>
+    </table>
+
+    <h2>3. 模板示例</h2>
+    <pre><code>&lt;style&gt;
+  .resume { font-family: "Microsoft YaHei", sans-serif; color: #1f2937; }
+  .header { border-bottom: 3px solid #2563eb; padding-bottom: 12px; }
+  .photo { width: 88px; height: 108px; object-fit: cover; float: right; }
+  h1 { margin: 0; font-size: 28px; }
+  h2 { margin-top: 22px; color: #2563eb; font-size: 16px; }
+&lt;/style&gt;
+
+&lt;div class="resume"&gt;
+  &lt;div class="header"&gt;
+    &lt;img class="photo" src="{{photo}}" alt="" /&gt;
+    &lt;h1&gt;{{name}}&lt;/h1&gt;
+    &lt;p&gt;{{job_intention}}&lt;/p&gt;
+    &lt;p&gt;{{phone}} · {{email}} · {{location}}&lt;/p&gt;
+  &lt;/div&gt;
+  &lt;h2&gt;个人简介&lt;/h2&gt;
+  &lt;p&gt;{{summary}}&lt;/p&gt;
+  &lt;h2&gt;专业技能&lt;/h2&gt;
+  &lt;ul&gt;{{skills}}&lt;/ul&gt;
+  &lt;h2&gt;教育经历&lt;/h2&gt;
+  {{education}}
+  &lt;h2&gt;项目经历&lt;/h2&gt;
+  {{projects}}
+&lt;/div&gt;</code></pre>
+
+    <h2>4. 上传接口</h2>
+    <p><code>POST /api/resume-templates/upload</code></p>
+    <table>
+      <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>file</code></td><td>File</td><td>模板文件</td></tr>
+        <tr><td><code>name</code></td><td>string</td><td>模板名称</td></tr>
+        <tr><td><code>description</code></td><td>string</td><td>模板描述</td></tr>
+        <tr><td><code>is_public</code></td><td>boolean</td><td>是否公开，默认 false</td></tr>
+      </tbody>
+    </table>
+
+    <h2>5. 选择接口</h2>
+    <p><code>POST /api/resumes/{resume_id}/template</code></p>
+    <pre><code>{
+  "template_id": "custom:12"
+}</code></pre>
+    <p>内置模板 ID：<code>classic</code>、<code>modern</code>、<code>sidebar</code>、<code>minimal</code>。用户上传模板 ID：<code>custom:&lt;模板ID&gt;</code>。</p>
+
+    <h2>6. 公开与私有</h2>
+    <ul>
+      <li>用户上传模板默认私有，仅自己可见和使用。</li>
+      <li>勾选公开后，其他登录用户可以查看和使用，但不能修改你的模板。</li>
+      <li>复制公开模板后，新副本归当前用户所有，并默认私有。</li>
+    </ul>
   </main>
-  <script>
-    fetch("./resume_template_requirements.md")
-      .then(function (response) {
-        if (!response.ok) {
-          throw new Error("文档加载失败（" + response.status + "）");
-        }
-        return response.text();
-      })
-      .then(function (text) {
-        document.getElementById("content").textContent = text;
-      })
-      .catch(function (error) {
-        document.getElementById("content").innerHTML =
-          "<span class=\"error\">" + (error && error.message ? error.message : "文档加载失败") + "</span>";
-      });
-  </script>
 </body>
 </html>

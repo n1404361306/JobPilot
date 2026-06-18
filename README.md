@@ -70,7 +70,7 @@ JobPilot/
 - Node.js 18+
 - Python 3.11+
 - （可选）MySQL 8、Redis
-- （可选）Tesseract OCR（截图识别场景）
+- （可选）服务端 OCR 引擎：Tesseract / RapidOCR / PaddleOCR（截图和扫描件识别场景）
 
 ### 1. 克隆项目
 
@@ -86,7 +86,7 @@ cd backend
 cp .env.example .env
 pip install -r requirements.txt
 alembic upgrade head
-python scripts/init_test_account.py
+python scripts/init_test_account.py    # 初始化管理员账号
 python scripts/seed_prompt_templates.py
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -108,7 +108,7 @@ npm run dev
 
 ### 4. 登录系统
 
-执行 `init_test_account.py` 后可使用默认管理员账号：
+初始化管理员账号后可使用以下默认账号登录：
 
 | 字段 | 值 |
 |------|----|
@@ -188,7 +188,7 @@ uvicorn app.main:app --reload                     # 开发模式启动
 
 模板使用 `{{name}}`、`{{summary}}`、`{{projects}}` 等占位符读取简历表单数据；上传接口为 `POST /api/resume-templates/upload`，选择接口为 `POST /api/resumes/{resume_id}/template`。
 
-详细格式、占位符和接口说明见：`docs/resume_template_requirements.md`
+详细格式、占位符和接口说明见：`docs/resume_template_requirements.md`；前端页面可访问 `/docs/resume_template_requirements.html`。
 
 ## 生产部署
 
@@ -212,4 +212,4 @@ uvicorn app.main:app --reload                     # 开发模式启动
 
 ## 许可证
 
-本项目为课程/学习用途开发，具体授权方式请根据课程或团队要求补充。
+本项目用于求职流程管理与智能辅助场景，具体授权方式请根据交付要求补充。

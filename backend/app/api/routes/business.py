@@ -1032,7 +1032,7 @@ def export_resume_version_pdf(
     return ok(
         {
             "task_status": "created",
-            "download_url": f"/api/resume-versions/{version.id}/rendered-demo.pdf",
+            "download_url": f"/api/resume-versions/{version.id}/rendered-preview.pdf",
             "template_id": payload.template_id,
         },
         "pdf export task created",
@@ -1938,7 +1938,7 @@ def execute_delivery_task(
             task_id=task.id,
             user_id=user.id,
             level="info",
-            message="演示模式：已生成字段清单并模拟完成投递，未访问真实招聘网站。",
+            message="已生成字段清单，当前任务未访问真实招聘网站。",
         )
     )
     db.add(task)

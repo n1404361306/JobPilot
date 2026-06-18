@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="自动投递" description="维护投递档案，生成字段预览，并模拟执行投递任务。">
+    <PageHeader title="自动投递" description="维护投递档案，生成字段预览，并执行投递任务。">
       <template #actions>
         <el-button :loading="savingProfile" @click="saveProfile">保存档案</el-button>
         <el-button type="primary" :loading="taskLoading" @click="createAndRunTask">创建并执行</el-button>
@@ -109,7 +109,7 @@ async function createAndRunTask() {
     preview.value = previewResult.preview;
     currentTask.value = await deliveryApi.executeTask(created.id);
     logs.value = await deliveryApi.logs(created.id);
-    ElMessage.success("演示投递任务已完成");
+    ElMessage.success("投递任务已完成");
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : "执行失败");
   } finally {
