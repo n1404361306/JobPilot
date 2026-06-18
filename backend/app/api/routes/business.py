@@ -70,6 +70,12 @@ from app.modules.ai.client import AIClient
 from app.modules.ai.log_service import run_ai_with_log
 from app.modules.ai.prompt_service import PromptService
 
+# from app.worker.tasks.delivery_tasks import execute_delivery
+
+from celery.result import AsyncResult
+from app.worker.celery_app import celery_app
+from app.worker.tasks.export_tasks import export_pdf as export_pdf_task
+
 router = APIRouter(tags=["business"])
 
 
@@ -996,6 +1002,48 @@ def render_resume_version(
     return ok({"html": html, "version_id": version.id, "template_id": payload.template_id})
 
 
+# @router.post("/resume-versions/{version_id}/export-pdf")
+# def export_resume_version_pdf(
+#     version_id: int,
+#     payload: ResumeRenderRequest,
+#     db: Session = Depends(get_db),
+#     user: User = Depends(get_current_user),
+# ):
+#     version = _get_version(db, version_id, user.id)
+#     export_dir = Path("uploads") / "exports" / str(user.id)
+#     export_dir.mkdir(parents=True, exist_ok=True)
+#     pdf_path = export_dir / f"resume-version-{version.id}.pdf"
+#     import fitz
+
+#     doc = fitz.open()
+#     page = doc.new_page(width=595, height=842)
+#     page.insert_textbox(
+#         fitz.Rect(42, 42, 553, 800),
+#         version.content.replace("\r\n", "\n"),
+#         fontsize=10,
+#         fontname="helv",
+#         lineheight=1.25,
+#     )
+#     doc.save(str(pdf_path))
+#     doc.close()
+#     return ok(
+#         {
+#             "task_status": "success",
+#             "download_url": f"/uploads/exports/{user.id}/resume-version-{version.id}.pdf",
+#             "file_path": str(pdf_path),
+#             "template_id": payload.template_id,
+#         },
+#         "pdf exported",
+#     )
+#     return ok(
+#         {
+#             "task_status": "created",
+#             "download_url": f"/api/resume-versions/{version.id}/rendered-preview.pdf",
+#             "template_id": payload.template_id,
+#         },
+#         "pdf export task created",
+#     )
+
 @router.post("/resume-versions/{version_id}/export-pdf")
 def export_resume_version_pdf(
     version_id: int,
@@ -1003,41 +1051,30 @@ def export_resume_version_pdf(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    version = _get_version(db, version_id, user.id)
-    export_dir = Path("uploads") / "exports" / str(user.id)
-    export_dir.mkdir(parents=True, exist_ok=True)
-    pdf_path = export_dir / f"resume-version-{version.id}.pdf"
-    import fitz
-
-    doc = fitz.open()
-    page = doc.new_page(width=595, height=842)
-    page.insert_textbox(
-        fitz.Rect(42, 42, 553, 800),
-        version.content.replace("\r\n", "\n"),
-        fontsize=10,
-        fontname="helv",
-        lineheight=1.25,
-    )
-    doc.save(str(pdf_path))
-    doc.close()
+    _get_version(db, version_id, user.id)
+    async_result = export_pdf_task.delay(version_id, user.id, payload.template_id)
     return ok(
         {
-            "task_status": "success",
-            "download_url": f"/uploads/exports/{user.id}/resume-version-{version.id}.pdf",
-            "file_path": str(pdf_path),
-            "template_id": payload.template_id,
-        },
-        "pdf exported",
-    )
-    return ok(
-        {
-            "task_status": "created",
-            "download_url": f"/api/resume-versions/{version.id}/rendered-preview.pdf",
-            "template_id": payload.template_id,
+            "task_status": "pending",
+            "worker_task_id": async_result.id,
+            "version_id": version_id,
         },
         "pdf export task created",
     )
 
+@router.get("/resume-versions/{version_id}/export-pdf/tasks/{worker_task_id}")
+def get_export_pdf_task(
+    version_id: int,
+    worker_task_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _get_version(db, version_id, user.id)
+    result = AsyncResult(worker_task_id, app=celery_app)
+    if not result.ready():
+        return ok({"task_status": "running", "worker_task_id": worker_task_id})
+    payload = result.get(propagate=False)
+    return ok(payload)
 
 @router.get("/resume-templates")
 def list_resume_templates(
@@ -1945,6 +1982,22 @@ def execute_delivery_task(
     db.commit()
     db.refresh(task)
     return ok(_dump(task, DeliveryTaskOut), "delivery task executed")
+
+# @router.post("/delivery/tasks/{task_id}/execute")
+# def execute_delivery_task(
+#     task_id: int,
+#     db: Session = Depends(get_db),
+#     user: User = Depends(get_current_user),
+# ):
+#     task = _get_delivery_task(db, task_id, user.id)
+#     if task.task_status in {"pending", "running"}:
+#         raise BusinessException(code=4009, message="delivery task already running")
+#     task.task_status = "pending"
+#     db.add(task)
+#     db.commit()
+#     execute_delivery.delay(task.id, user.id)
+#     db.refresh(task)
+#     return ok(_dump(task, DeliveryTaskOut), "delivery task queued")
 
 
 @router.get("/delivery/tasks/{task_id}/logs")

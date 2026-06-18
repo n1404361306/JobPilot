@@ -28,6 +28,9 @@ from app.modules.ai.prompt_service import PromptService
 from app.modules.resume.document_extractor import extract_resume_text, save_resume_upload
 from app.schemas.business import AIResultOut, AITextRequest, InterviewEvaluateRequest, MatchCalculateRequest, ResumeTemplateChatRequest
 
+from celery.result import AsyncResult
+from app.worker.celery_app import celery_app
+from app.worker.tasks.ai_tasks import generate_ai_content
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -656,3 +659,27 @@ async def generate_weekly_report(
         },
         "weekly report created",
     )
+
+@router.post("/resumes/optimize-async")
+async def optimize_resume_async(
+    payload: AITextRequest,
+    user: User = Depends(get_current_user),
+):
+    async_result = generate_ai_content.delay(
+        user_id=user.id,
+        prompt_type="resume_optimize",
+        system_prompt="你是中文简历优化专家。...",
+        user_prompt=f"请优化以下简历/岗位材料：\n{payload.text}",
+    )
+    return ok({"task_status": "pending", "worker_task_id": async_result.id})
+    
+@router.get("/tasks/{worker_task_id}")
+def get_ai_worker_task(worker_task_id: str, user: User = Depends(get_current_user)):
+    _ = user
+    result = AsyncResult(worker_task_id, app=celery_app)
+    if not result.ready():
+        return ok({"task_status": "running"})
+    payload = result.get(propagate=False)
+    if payload.get("status") == "success":
+        return ok(_result("简历优化建议", _strip_markdown(payload["content"])))
+    return ok({"task_status": "failed", "error": payload.get("error")})

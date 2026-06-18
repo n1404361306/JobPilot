@@ -9,6 +9,8 @@ from app.modules.ocr.file_storage import save_upload_document
 from app.modules.ocr.task_service import OCRTaskService
 from app.schemas.ocr import OCRExtractOut, OCRTaskOut
 
+from app.worker.tasks.ocr_tasks import extract_ocr_text
+
 router = APIRouter(prefix="/ocr", tags=["ocr"])
 
 
@@ -43,17 +45,18 @@ async def extract_text(
         file_size=file_size,
     )
     task = service.create_task(user_id=user.id, file_id=file_record.id)
-    task = service.run_task(task.id)
+    # task = service.run_task(task.id)
+    extract_ocr_text.delay(task.id)
 
     data = OCRExtractOut(
         task_id=task.id,
         file_id=file_record.id,
-        task_status=task.task_status,
-        ocr_text=task.ocr_text,
+        task_status="pending",
+        ocr_text=None,
         confidence_avg=float(task.confidence_avg) if task.confidence_avg is not None else None,
         page_count=task.page_count,
     ).model_dump()
-    return ok(data)
+    return ok(data, "ocr task created")
 
 
 @router.get("/tasks/{task_id}")
