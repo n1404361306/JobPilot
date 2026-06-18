@@ -26,9 +26,38 @@
         </button>
       </div>
 
+      <div v-if="customTemplates.length" class="custom-template-block">
+        <div class="block-title">用户上传模板</div>
+        <div class="template-picker">
+          <button
+            v-for="template in customTemplates"
+            :key="template.id"
+            type="button"
+            class="template-chip"
+            :class="{ active: templateId === customTemplateId(template.id) }"
+            @click="templateId = customTemplateId(template.id)"
+          >
+            <span class="template-dot custom-dot" />
+            <span class="template-name">{{ template.name }}</span>
+            <span class="template-desc">
+              {{ template.description || "用户上传模板" }} · {{ template.is_public ? "公开" : "私有" }}
+            </span>
+          </button>
+        </div>
+      </div>
+      <el-alert
+        v-else
+        type="info"
+        :closable="false"
+        show-icon
+        title="暂无用户上传模板"
+        description="可在「模板选择」页上传，或使用 AI 制作模板。"
+        class="custom-empty-alert"
+      />
+
       <div class="dialog-toolbar">
         <ResumeExportToolbar
-          v-model:template-id="templateId"
+          hide-template-select
           :snapshot="previewSnapshot"
           :preview-ref="previewComponent"
           :filename="exportFilename"
@@ -36,7 +65,12 @@
       </div>
 
       <div class="preview-shell">
-        <ResumeStyledPreview ref="previewComponent" :snapshot="previewSnapshot" :template-id="templateId" />
+        <ResumeStyledPreview
+          ref="previewComponent"
+          :snapshot="previewSnapshot"
+          :template-id="templateId"
+          :custom-template-content="selectedCustomTemplateContent"
+        />
       </div>
     </template>
 
@@ -50,19 +84,21 @@
 <script setup lang="ts">
 import { ElMessage } from "element-plus";
 import { computed, ref, watch } from "vue";
-import { resumeApi } from "@/api/modules";
-import type { Resume } from "@/api/types";
+import { resumeApi, templateApi } from "@/api/modules";
+import type { Resume, ResumeTemplate } from "@/api/types";
 import ResumeExportToolbar from "@/components/ResumeExportToolbar.vue";
 import ResumeStyledPreview from "@/components/ResumeStyledPreview.vue";
-import {
-  applyTemplateToResumeContent,
-  getResumeDisplayContent,
-  getResumeSnapshot,
-  getResumeTemplateId
-} from "@/composables/useResumeForm";
+import { getResumeDisplayContent, getResumeSnapshot, getResumeTemplateId } from "@/composables/useResumeForm";
 import { buildExportFilename } from "@/utils/resumeExport";
 import { snapshotFromPlainText } from "@/utils/resumeHelpers";
-import { DEFAULT_RESUME_TEMPLATE_ID, RESUME_TEMPLATE_PRESETS, type ResumeTemplateId } from "@/utils/resumeTemplates";
+import {
+  customTemplateId,
+  DEFAULT_RESUME_TEMPLATE_ID,
+  filterSelectableCustomTemplates,
+  findCustomTemplateContent,
+  RESUME_TEMPLATE_PRESETS,
+  type ResumeTemplateId
+} from "@/utils/resumeTemplates";
 
 const props = defineProps<{
   visible: boolean;
@@ -79,6 +115,7 @@ const saving = ref(false);
 const templateId = ref<ResumeTemplateId>(DEFAULT_RESUME_TEMPLATE_ID);
 const previewComponent = ref<InstanceType<typeof ResumeStyledPreview>>();
 const resumeContent = ref("");
+const customTemplates = ref<ResumeTemplate[]>([]);
 
 const previewSnapshot = computed(() => {
   const snapshot = getResumeSnapshot(resumeContent.value);
@@ -87,6 +124,9 @@ const previewSnapshot = computed(() => {
 });
 
 const exportFilename = computed(() => buildExportFilename(previewSnapshot.value, props.resume?.title || "resume"));
+const selectedCustomTemplateContent = computed(() =>
+  findCustomTemplateContent(customTemplates.value, templateId.value)
+);
 
 watch(
   () => [props.visible, props.resume?.id] as const,
@@ -96,9 +136,13 @@ watch(
     }
     loading.value = true;
     try {
-      const resume = props.resume.id === resumeId ? props.resume : await resumeApi.get(resumeId);
+      const [resume, templates] = await Promise.all([
+        props.resume.id === resumeId ? props.resume : resumeApi.get(resumeId),
+        templateApi.list()
+      ]);
       resumeContent.value = resume.content;
       templateId.value = getResumeTemplateId(resume.content);
+      customTemplates.value = filterSelectableCustomTemplates(templates);
     } catch (error) {
       ElMessage.error(error instanceof Error ? error.message : "简历加载失败");
       emit("update:visible", false);
@@ -113,9 +157,8 @@ async function applyTemplate() {
   if (!props.resume) return;
   saving.value = true;
   try {
-    const content = applyTemplateToResumeContent(resumeContent.value, templateId.value);
-    await resumeApi.update(props.resume.id, { content });
-    resumeContent.value = content;
+    const resume = await resumeApi.selectTemplate(props.resume.id, templateId.value);
+    resumeContent.value = resume.content;
     ElMessage.success("模板已应用");
     emit("applied");
     emit("update:visible", false);
@@ -185,6 +228,25 @@ async function applyTemplate() {
 
 .dialog-toolbar {
   margin-bottom: 14px;
+}
+
+.custom-template-block {
+  margin-top: 4px;
+}
+
+.custom-empty-alert {
+  margin: 8px 0 12px;
+}
+
+.block-title {
+  margin: 4px 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.custom-dot {
+  background: linear-gradient(135deg, #f59e0b, #2563eb);
 }
 
 .preview-shell {

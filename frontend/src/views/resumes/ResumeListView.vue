@@ -11,13 +11,23 @@
       <template v-else-if="resumes.length">
       <div class="batch-toolbar">
         <span class="muted">已选择 {{ selectedResumes.length }} 份简历</span>
-        <el-select v-model="batchTemplateId" class="template-select" placeholder="选择模板">
-          <el-option
-            v-for="preset in RESUME_TEMPLATE_PRESETS"
-            :key="preset.id"
-            :label="preset.name"
-            :value="preset.id"
-          />
+        <el-select v-model="batchTemplateId" class="template-select" placeholder="选择模板" filterable>
+          <el-option-group label="内置模板">
+            <el-option
+              v-for="preset in RESUME_TEMPLATE_PRESETS"
+              :key="preset.id"
+              :label="preset.name"
+              :value="preset.id"
+            />
+          </el-option-group>
+          <el-option-group v-if="customTemplates.length" label="用户模板">
+            <el-option
+              v-for="template in customTemplates"
+              :key="template.id"
+              :label="`${template.name}（${template.is_public ? '公开' : '私有'}）`"
+              :value="customTemplateId(template.id)"
+            />
+          </el-option-group>
         </el-select>
         <el-button
           type="primary"
@@ -86,31 +96,51 @@ import { Plus } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { resumeApi } from "@/api/modules";
-import type { Resume } from "@/api/types";
+import { resumeApi, templateApi } from "@/api/modules";
+import type { Resume, ResumeTemplate } from "@/api/types";
 import EmptyState from "@/components/EmptyState.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import ResumeTemplateDialog from "@/components/ResumeTemplateDialog.vue";
-import { applyTemplateToResumeContent, getResumeTemplateId } from "@/composables/useResumeForm";
+import { getResumeTemplateId } from "@/composables/useResumeForm";
 import { formatDateTime } from "@/utils/status";
-import { DEFAULT_RESUME_TEMPLATE_ID, getTemplatePreset, RESUME_TEMPLATE_PRESETS, type ResumeTemplateId } from "@/utils/resumeTemplates";
+import {
+  customTemplateId,
+  DEFAULT_RESUME_TEMPLATE_ID,
+  filterSelectableCustomTemplates,
+  getCustomTemplateLabel,
+  getTemplatePreset,
+  parseCustomTemplateId,
+  RESUME_TEMPLATE_PRESETS,
+  type ResumeTemplateId
+} from "@/utils/resumeTemplates";
 
 const router = useRouter();
 const loading = ref(true);
 const bulkDeleting = ref(false);
 const applyingTemplate = ref(false);
 const resumes = ref<Resume[]>([]);
+const customTemplates = ref<ResumeTemplate[]>([]);
 const selectedResumes = ref<Resume[]>([]);
 const batchTemplateId = ref<ResumeTemplateId>(DEFAULT_RESUME_TEMPLATE_ID);
 const templateDialogVisible = ref(false);
 const activeResume = ref<Resume | null>(null);
 
 function templateName(resume: Resume) {
-  return getTemplatePreset(getResumeTemplateId(resume.content)).name;
+  const id = getResumeTemplateId(resume.content);
+  return getCustomTemplateLabel(customTemplates.value, id);
 }
 
 function templateTagStyle(resume: Resume) {
-  const preset = getTemplatePreset(getResumeTemplateId(resume.content));
+  const id = getResumeTemplateId(resume.content);
+  const customId = parseCustomTemplateId(id);
+  if (customId) {
+    return {
+      color: "#b45309",
+      borderColor: "#f59e0b55",
+      background: "#f59e0b10"
+    };
+  }
+  const preset = getTemplatePreset(id);
   return {
     color: preset.accent,
     borderColor: `${preset.accent}55`,
@@ -133,7 +163,9 @@ function goPreview(resume: Resume) {
 async function load() {
   loading.value = true;
   try {
-    resumes.value = await resumeApi.list();
+    const [resumeList, templateList] = await Promise.all([resumeApi.list(), templateApi.list()]);
+    resumes.value = resumeList;
+    customTemplates.value = filterSelectableCustomTemplates(templateList);
     selectedResumes.value = [];
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : "简历加载失败");
@@ -181,8 +213,7 @@ async function applyTemplateToSelected() {
   applyingTemplate.value = true;
   try {
     for (const resume of selectedResumes.value) {
-      const content = applyTemplateToResumeContent(resume.content, batchTemplateId.value);
-      await resumeApi.update(resume.id, { content });
+      await resumeApi.selectTemplate(resume.id, batchTemplateId.value);
     }
     ElMessage.success("已批量套用模板");
     await load();
@@ -207,7 +238,7 @@ onMounted(load);
 }
 
 .template-select {
-  width: 180px;
+  width: 240px;
 }
 
 .muted {

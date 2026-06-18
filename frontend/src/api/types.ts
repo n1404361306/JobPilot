@@ -44,6 +44,7 @@ export interface ResumeTemplate {
   content: string;
   enabled: boolean;
   is_system: boolean;
+  is_public: boolean;
   copied_from_id: number | null;
   created_at: string;
   updated_at: string;
@@ -54,6 +55,18 @@ export interface ResumeTemplatePayload {
   description?: string | null;
   content: string;
   enabled?: boolean;
+  is_public?: boolean;
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ResumeTemplateChatPayload {
+  message: string;
+  history?: ChatMessage[];
+  current_template?: string | null;
 }
 
 export type JobStatus = "active" | "closed" | "archived";
@@ -206,6 +219,7 @@ export interface MatchReport {
 export interface StatisticsOverview {
   resume_count: number;
   job_count: number;
+  active_job_count?: number;
   application_count: number;
   match_report_count: number;
   average_match_score: number;
@@ -216,12 +230,15 @@ export interface StatisticsOverview {
 export interface StatisticsApplications {
   total: number;
   status_counts: Record<string, number>;
+  interview_count?: number;
+  offer_count?: number;
   interview_conversion_rate: number;
   offer_conversion_rate: number;
 }
 
 export interface StatisticsJobs {
   total: number;
+  active_count?: number;
   source_counts: Record<string, number>;
   type_counts: Record<string, number>;
   city_counts: Record<string, number>;

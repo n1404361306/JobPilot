@@ -1,0 +1,147 @@
+<style>
+  .resume {
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    color: #1f2937;
+    line-height: 1.65;
+  }
+
+  .resume-header {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    border-bottom: 3px solid #2563eb;
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+  }
+
+  .resume-photo {
+    width: 96px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    flex-shrink: 0;
+  }
+
+  .resume-name {
+    margin: 0;
+    font-size: 30px;
+    color: #111827;
+  }
+
+  .resume-intention {
+    margin: 8px 0 0;
+    color: #4b5563;
+    font-size: 15px;
+  }
+
+  .resume-contact {
+    margin: 12px 0 0;
+    color: #6b7280;
+    font-size: 13px;
+  }
+
+  .resume-section {
+    margin-top: 22px;
+  }
+
+  .resume-section h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    color: #2563eb;
+    border-left: 4px solid #2563eb;
+    padding-left: 8px;
+  }
+
+  .resume-section p,
+  .resume-section ul {
+    margin: 0;
+  }
+
+  .resume-section ul {
+    padding-left: 20px;
+  }
+
+  .custom-item {
+    margin-bottom: 12px;
+  }
+
+  .custom-item h3 {
+    margin: 0 0 4px;
+    font-size: 14px;
+    color: #111827;
+  }
+</style>
+
+<div class="resume">
+  <header class="resume-header">
+    <img class="resume-photo" src="{{photo}}" alt="个人照片" />
+    <div>
+      <h1 class="resume-name">{{name}}</h1>
+      <p class="resume-intention">{{job_intention}}</p>
+      <p class="resume-contact">
+        {{phone}} · {{email}} · {{location}} · {{github}} · {{website}}
+      </p>
+    </div>
+  </header>
+
+  <section class="resume-section">
+    <h2>个人简介</h2>
+    <p>{{summary}}</p>
+  </section>
+
+  <section class="resume-section">
+    <h2>专业技能</h2>
+    <ul>{{skills}}</ul>
+  </section>
+
+  <section class="resume-section">
+    <h2>教育经历</h2>
+    {{education}}
+  </section>
+
+  <section class="resume-section">
+    <h2>实习经历</h2>
+    {{internships}}
+  </section>
+
+  <section class="resume-section">
+    <h2>项目经历</h2>
+    {{projects}}
+  </section>
+
+  <section class="resume-section">
+    <h2>科研经历</h2>
+    <p>{{research}}</p>
+  </section>
+
+  <section class="resume-section">
+    <h2>荣誉奖项</h2>
+    <ul>{{awards}}</ul>
+  </section>
+
+  <section class="resume-section">
+    <h2>证书资质</h2>
+    <p>{{certificates}}</p>
+  </section>
+
+  <section class="resume-section">
+    <h2>开源贡献</h2>
+    <p>{{open_source}}</p>
+  </section>
+
+  <section class="resume-section">
+    <h2>兴趣爱好</h2>
+    <p>{{interests}}</p>
+  </section>
+
+  <section class="resume-section">
+    <h2>自我评价</h2>
+    <p>{{self_evaluation}}</p>
+  </section>
+
+  <section class="resume-section">
+    <h2>待补充</h2>
+    <p>{{missing}}</p>
+  </section>
+</div>

@@ -15,6 +15,11 @@
             <el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? "启用" : "停用" }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="公开" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.is_public ? 'warning' : 'info'">{{ row.is_public ? "公开" : "私有" }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="170">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDialog(row)">编辑</el-button>
@@ -37,6 +42,9 @@
         </el-form-item>
         <el-form-item label="启用">
           <el-switch v-model="form.enabled" />
+        </el-form-item>
+        <el-form-item label="公开给所有用户">
+          <el-switch v-model="form.is_public" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -63,7 +71,8 @@ const form = reactive({
   name: "",
   description: "",
   content: "",
-  enabled: true
+  enabled: true,
+  is_public: true
 });
 
 async function load() {
@@ -83,7 +92,8 @@ function openDialog(template?: ResumeTemplate) {
     name: template?.name || "",
     description: template?.description || "",
     content: template?.content || "",
-    enabled: template?.enabled ?? true
+    enabled: template?.enabled ?? true,
+    is_public: template?.is_public ?? true
   });
   dialogVisible.value = true;
 }

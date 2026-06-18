@@ -10,6 +10,11 @@ from app.api.routes.business import (
     _parse_job_with_ai_or_rule,
     _strip_markdown,
 )
+from app.modules.resume.template_fields import (
+    RESUME_TEMPLATE_AI_SYSTEM_PROMPT,
+    find_missing_required_placeholders,
+)
+from app.modules.resume.template_validation import validate_template_content
 from app.core.config import get_settings
 from app.core.exceptions import BusinessException
 from app.core.response import ok
@@ -21,7 +26,7 @@ from app.modules.ai.client import AIClient
 from app.modules.ai.log_service import run_ai_with_log
 from app.modules.ai.prompt_service import PromptService
 from app.modules.resume.document_extractor import extract_resume_text, save_resume_upload
-from app.schemas.business import AIResultOut, AITextRequest, InterviewEvaluateRequest, MatchCalculateRequest
+from app.schemas.business import AIResultOut, AITextRequest, InterviewEvaluateRequest, MatchCalculateRequest, ResumeTemplateChatRequest
 
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -130,6 +135,41 @@ def _parse_interview_questions(content: str) -> list[str]:
             continue
         questions.append(line)
     return questions
+
+
+async def _call_ai_messages_json(
+    db: Session,
+    *,
+    user_id: int,
+    prompt_type: str,
+    system_prompt: str,
+    messages: list[dict[str, str]],
+    temperature: float = 0.35,
+) -> dict:
+    settings = get_settings()
+    resolved_system_prompt = _prompt_or_default(db, prompt_type, system_prompt, {})
+    result = await run_ai_with_log(
+        db,
+        user_id=user_id,
+        prompt_type=prompt_type,
+        ai_client=AIClient(),
+        messages=[{"role": "system", "content": resolved_system_prompt}, *messages],
+        model_name=settings.ai_primary.model or settings.ai_primary_provider,
+        response_format={"type": "json_object"},
+        temperature=temperature,
+    )
+    try:
+        return json.loads(result.content)
+    except json.JSONDecodeError:
+        return {"raw_content": result.content}
+
+
+def _unwrap_template_code_fence(content: str) -> str:
+    text = content.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[\w-]*\n?", "", text)
+        text = re.sub(r"\n?```$", "", text)
+    return text.strip()
 
 
 async def _call_ai_json(
@@ -518,6 +558,59 @@ async def evaluate_interview_answer(
         user_prompt=f"题目：{payload.question}\n\n候选人回答：\n{payload.answer}",
     )
     return ok(_result("面试回答评价", _strip_markdown(content)))
+
+
+@router.post("/resume-templates/chat")
+async def chat_resume_template(
+    payload: ResumeTemplateChatRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    messages: list[dict[str, str]] = []
+    for item in payload.history:
+        messages.append({"role": item.role, "content": item.content})
+
+    user_parts = [payload.message.strip()]
+    if payload.current_template and payload.current_template.strip():
+        user_parts.append(f"当前模板 HTML：\n{payload.current_template.strip()}")
+    messages.append({"role": "user", "content": "\n\n".join(user_parts)})
+
+    data = await _call_ai_messages_json(
+        db,
+        user_id=user.id,
+        prompt_type="resume_template_design",
+        system_prompt=RESUME_TEMPLATE_AI_SYSTEM_PROMPT,
+        messages=messages,
+        temperature=0.35,
+    )
+
+    summary = str(data.get("summary") or data.get("message") or "模板已生成，请在右侧预览效果。").strip()
+    template_content = _unwrap_template_code_fence(
+        str(data.get("template_content") or data.get("content") or data.get("raw_content") or "")
+    )
+    if not template_content:
+        raise BusinessException(code=5002, message="AI 未返回有效模板内容")
+
+    try:
+        template_content = validate_template_content(template_content)
+    except ValueError as exc:
+        raise BusinessException(code=4006, message=str(exc)) from exc
+
+    missing_fields = find_missing_required_placeholders(template_content)
+    if missing_fields:
+        summary = f"{summary}\n\n注意：模板仍缺少字段占位符：{', '.join(missing_fields)}。请在下一轮要求 AI 补全。"
+
+    return ok(
+        _result(
+            "AI 简历模板",
+            summary,
+            {
+                "template_content": template_content,
+                "summary": summary,
+                "missing_fields": missing_fields,
+            },
+        )
+    )
 
 
 @router.post("/reports/weekly")

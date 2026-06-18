@@ -179,6 +179,17 @@ uvicorn app.main:app --reload                     # 开发模式启动
 
 导入后可在右侧表单继续编辑，并在批量结果表格中逐条查看。
 
+## 用户自定义简历模板
+
+模板库支持用户上传 `.html`、`.htm`、`.txt` 模板。上传时可选择：
+
+- **仅自己使用**：默认私有，仅上传者可见和使用
+- **公开给其他用户**：其他登录用户可在模板库和模板选择弹窗中查看、选择和复制，但不能修改原模板
+
+模板使用 `{{name}}`、`{{summary}}`、`{{projects}}` 等占位符读取简历表单数据；上传接口为 `POST /api/resume-templates/upload`，选择接口为 `POST /api/resumes/{resume_id}/template`。
+
+详细格式、占位符和接口说明见：`docs/resume_template_requirements.md`
+
 ## 生产部署
 
 1. 后端使用 Gunicorn + Uvicorn Worker 启动，并配置 MySQL、Redis

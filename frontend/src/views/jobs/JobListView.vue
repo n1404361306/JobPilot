@@ -19,6 +19,12 @@
             <el-option label="已归档" value="archived" />
           </el-select>
         </el-form-item>
+        <el-form-item label="收藏">
+          <el-select v-model="filters.favorite" clearable placeholder="全部" style="width: 120px">
+            <el-option label="已收藏" value="true" />
+            <el-option label="未收藏" value="false" />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="load">筛选</el-button>
         </el-form-item>
@@ -44,6 +50,16 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="48" />
+        <el-table-column label="收藏" width="72" align="center">
+          <template #default="{ row }">
+            <el-button link :type="row.is_favorite ? 'warning' : 'info'" @click="toggleFavorite(row)">
+              <el-icon :size="18">
+                <StarFilled v-if="row.is_favorite" />
+                <Star v-else />
+              </el-icon>
+            </el-button>
+          </template>
+        </el-table-column>
         <el-table-column prop="title" label="岗位" min-width="160" />
         <el-table-column prop="company" label="公司" min-width="140" />
         <el-table-column prop="location" label="地点" min-width="110" />
@@ -92,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { Plus, Upload } from "@element-plus/icons-vue";
+import { Plus, Star, StarFilled, Upload } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -107,7 +123,7 @@ const bulkDeleting = ref(false);
 const jobs = ref<Job[]>([]);
 const applications = ref<Application[]>([]);
 const selectedJobs = ref<Job[]>([]);
-const filters = reactive({ keyword: "", status: "" });
+const filters = reactive({ keyword: "", status: "", favorite: "" });
 
 const applicationByJob = computed<Record<number, Application>>(() => {
   const mapped: Record<number, Application> = {};
@@ -129,10 +145,13 @@ function splitTags(value: string | null | undefined) {
 async function load() {
   loading.value = true;
   try {
+    const favorite =
+      filters.favorite === "true" ? true : filters.favorite === "false" ? false : undefined;
     const [jobList, applicationList] = await Promise.all([
       jobApi.list({
         keyword: filters.keyword || undefined,
-        status: filters.status || undefined
+        status: filters.status || undefined,
+        favorite
       }),
       applicationApi.list()
     ]);
@@ -148,6 +167,16 @@ async function load() {
 
 function handleSelectionChange(selection: Job[]) {
   selectedJobs.value = selection;
+}
+
+async function toggleFavorite(job: Job) {
+  try {
+    const updated = await jobApi.update(job.id, { is_favorite: !job.is_favorite });
+    jobs.value = jobs.value.map((item) => (item.id === updated.id ? updated : item));
+    ElMessage.success(updated.is_favorite ? "已收藏岗位" : "已取消收藏");
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : "收藏操作失败");
+  }
 }
 
 async function createApplication(job: Job) {

@@ -51,6 +51,7 @@ class ResumeTemplateCreate(BaseModel):
     content: str = Field(min_length=1)
     enabled: bool = True
     is_system: bool = False
+    is_public: bool = False
 
 
 class ResumeTemplateUpdate(BaseModel):
@@ -58,6 +59,7 @@ class ResumeTemplateUpdate(BaseModel):
     description: str | None = Field(default=None, max_length=255)
     content: str | None = Field(default=None, min_length=1)
     enabled: bool | None = None
+    is_public: bool | None = None
 
 
 class ResumeTemplateOut(BaseModel):
@@ -68,9 +70,14 @@ class ResumeTemplateOut(BaseModel):
     content: str
     enabled: bool
     is_system: bool = True
+    is_public: bool = False
     copied_from_id: int | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class ResumeTemplateSelectRequest(BaseModel):
+    template_id: str = Field(min_length=1, max_length=64)
 
 
 class JobCreate(BaseModel):
@@ -299,6 +306,17 @@ class InterviewEvaluateRequest(BaseModel):
     answer: str = Field(min_length=1)
     resume_id: int | None = None
     job_id: int | None = None
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1)
+
+
+class ResumeTemplateChatRequest(BaseModel):
+    message: str = Field(min_length=1)
+    history: list[ChatMessage] = Field(default_factory=list)
+    current_template: str | None = None
 
 
 class AIResultOut(BaseModel):
