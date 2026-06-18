@@ -1,12 +1,19 @@
 <template>
   <div>
-    <PageHeader title="数据统计" description="基于真实简历、岗位和投递记录生成统计图表，手机端纵向排列。" />
+    <PageHeader title="数据统计" description="展示投递、岗位、匹配报告和转化率等课程文档要求的统计指标。" />
 
     <div class="metric-grid">
-      <MetricCard label="简历" :value="metrics.resumeCount" hint="版本数量" tone="green" />
-      <MetricCard label="岗位" :value="jobs.length" hint="岗位库" tone="blue" />
-      <MetricCard label="投递" :value="metrics.applicationCount" hint="投递记录" tone="amber" />
-      <MetricCard label="Offer" :value="metrics.offerCount" hint="成功机会" tone="rose" />
+      <MetricCard label="简历" :value="overview?.resume_count || 0" hint="简历数量" tone="green" />
+      <MetricCard label="岗位" :value="jobsStats?.total || overview?.job_count || 0" hint="岗位库" tone="blue" />
+      <MetricCard label="投递" :value="applicationsStats?.total || overview?.application_count || 0" hint="投递记录" tone="amber" />
+      <MetricCard label="平均匹配" :value="`${Math.round(matchesStats?.average_score || overview?.average_match_score || 0)}分`" hint="匹配报告" tone="rose" />
+    </div>
+
+    <div class="metric-grid compact">
+      <MetricCard label="面试转化" :value="`${Math.round(applicationsStats?.interview_conversion_rate || 0)}%`" hint="进入面试阶段" tone="blue" />
+      <MetricCard label="Offer 转化" :value="`${Math.round(applicationsStats?.offer_conversion_rate || 0)}%`" hint="获得 Offer" tone="green" />
+      <MetricCard label="收藏岗位" :value="jobsStats?.favorite_count || 0" hint="重点机会" tone="amber" />
+      <MetricCard label="匹配报告" :value="matchesStats?.total || overview?.match_report_count || 0" hint="分析次数" tone="rose" />
     </div>
 
     <div class="grid-2">
@@ -18,9 +25,21 @@
       </section>
       <section class="panel">
         <div class="panel-title">
-          <h2>渠道分布</h2>
+          <h2>岗位来源分布</h2>
         </div>
-        <div ref="channelChartRef" class="chart-box"></div>
+        <div ref="sourceChartRef" class="chart-box"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-title">
+          <h2>岗位类型</h2>
+        </div>
+        <div ref="typeChartRef" class="chart-box"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-title">
+          <h2>匹配分数区间</h2>
+        </div>
+        <div ref="matchChartRef" class="chart-box"></div>
       </section>
     </div>
   </div>
@@ -29,34 +48,36 @@
 <script setup lang="ts">
 import * as echarts from "echarts";
 import { ElMessage } from "element-plus";
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
-import { applicationApi, jobApi, resumeApi } from "@/api/modules";
-import type { Application, Job, Resume } from "@/api/types";
+import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { statisticsApi } from "@/api/modules";
+import type { StatisticsApplications, StatisticsJobs, StatisticsMatches, StatisticsOverview } from "@/api/types";
 import MetricCard from "@/components/MetricCard.vue";
 import PageHeader from "@/components/PageHeader.vue";
-import { buildApplicationSummary, buildChannelSummary, buildDashboardMetrics } from "@/utils/statistics";
 import { applicationStatusLabels, applicationStatusOrder } from "@/utils/status";
 
-const resumes = ref<Resume[]>([]);
-const jobs = ref<Job[]>([]);
-const applications = ref<Application[]>([]);
-const statusChartRef = ref<HTMLDivElement>();
-const channelChartRef = ref<HTMLDivElement>();
-let statusChart: echarts.ECharts | null = null;
-let channelChart: echarts.ECharts | null = null;
+const overview = ref<StatisticsOverview | null>(null);
+const applicationsStats = ref<StatisticsApplications | null>(null);
+const jobsStats = ref<StatisticsJobs | null>(null);
+const matchesStats = ref<StatisticsMatches | null>(null);
 
-const metrics = computed(() => buildDashboardMetrics(resumes.value, jobs.value, applications.value));
+const statusChartRef = ref<HTMLDivElement>();
+const sourceChartRef = ref<HTMLDivElement>();
+const typeChartRef = ref<HTMLDivElement>();
+const matchChartRef = ref<HTMLDivElement>();
+let charts: echarts.ECharts[] = [];
 
 async function load() {
   try {
-    const [resumeData, jobData, applicationData] = await Promise.all([
-      resumeApi.list(),
-      jobApi.list(),
-      applicationApi.list()
+    const [overviewData, applicationData, jobData, matchData] = await Promise.all([
+      statisticsApi.overview(),
+      statisticsApi.applications(),
+      statisticsApi.jobs(),
+      statisticsApi.matches()
     ]);
-    resumes.value = resumeData;
-    jobs.value = jobData;
-    applications.value = applicationData;
+    overview.value = overviewData;
+    applicationsStats.value = applicationData;
+    jobsStats.value = jobData;
+    matchesStats.value = matchData;
     await nextTick();
     renderCharts();
   } catch (error) {
@@ -64,39 +85,67 @@ async function load() {
   }
 }
 
+function toPieData(counts: Record<string, number>, emptyName = "暂无数据") {
+  const entries = Object.entries(counts || {});
+  return entries.length ? entries.map(([name, value]) => ({ name, value })) : [{ name: emptyName, value: 1 }];
+}
+
 function renderCharts() {
-  const summary = buildApplicationSummary(applications.value);
-  const channelSummary = buildChannelSummary(applications.value);
+  disposeCharts();
 
   if (statusChartRef.value) {
-    statusChart = echarts.init(statusChartRef.value);
-    statusChart.setOption({
+    const chart = echarts.init(statusChartRef.value);
+    const counts = applicationsStats.value?.status_counts || {};
+    chart.setOption({
       tooltip: {},
       xAxis: { type: "category", data: applicationStatusOrder.map((status) => applicationStatusLabels[status]) },
       yAxis: { type: "value" },
-      series: [{ type: "bar", data: applicationStatusOrder.map((status) => summary[status]), color: "#0f766e" }]
+      series: [{ type: "bar", data: applicationStatusOrder.map((status) => counts[status] || 0), color: "#0f766e" }]
     });
+    charts.push(chart);
   }
 
-  if (channelChartRef.value) {
-    channelChart = echarts.init(channelChartRef.value);
-    channelChart.setOption({
+  if (sourceChartRef.value) {
+    const chart = echarts.init(sourceChartRef.value);
+    chart.setOption({
       tooltip: { trigger: "item" },
-      series: [
-        {
-          type: "pie",
-          radius: ["45%", "72%"],
-          data: channelSummary.length ? channelSummary : [{ name: "暂无数据", value: 1 }],
-          color: ["#2563eb", "#0f766e", "#b45309", "#be123c", "#64748b"]
-        }
-      ]
+      series: [{ type: "pie", radius: ["45%", "72%"], data: toPieData(jobsStats.value?.source_counts || {}) }]
     });
+    charts.push(chart);
+  }
+
+  if (typeChartRef.value) {
+    const chart = echarts.init(typeChartRef.value);
+    const typeCounts = jobsStats.value?.type_counts || {};
+    chart.setOption({
+      tooltip: {},
+      xAxis: { type: "category", data: Object.keys(typeCounts) },
+      yAxis: { type: "value" },
+      series: [{ type: "bar", data: Object.values(typeCounts), color: "#2563eb" }]
+    });
+    charts.push(chart);
+  }
+
+  if (matchChartRef.value) {
+    const chart = echarts.init(matchChartRef.value);
+    const ranges = matchesStats.value?.score_ranges || {};
+    chart.setOption({
+      tooltip: {},
+      xAxis: { type: "category", data: Object.keys(ranges) },
+      yAxis: { type: "value" },
+      series: [{ type: "bar", data: Object.values(ranges), color: "#b45309" }]
+    });
+    charts.push(chart);
   }
 }
 
 function resizeCharts() {
-  statusChart?.resize();
-  channelChart?.resize();
+  charts.forEach((chart) => chart.resize());
+}
+
+function disposeCharts() {
+  charts.forEach((chart) => chart.dispose());
+  charts = [];
 }
 
 onMounted(() => {
@@ -106,7 +155,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener("resize", resizeCharts);
-  statusChart?.dispose();
-  channelChart?.dispose();
+  disposeCharts();
 });
 </script>

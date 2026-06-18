@@ -1,9 +1,13 @@
 from typing import Optional
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field, field_validator
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 class LLMProviderSettings(BaseModel):
     provider: str
@@ -12,14 +16,14 @@ class LLMProviderSettings(BaseModel):
     model: str
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=str(ENV_FILE), env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = Field(default="JobPilot API", alias="APP_NAME")
     env: str = Field(default="dev", alias="ENV")
     debug: bool = Field(default=True, alias="DEBUG")
     api_v1_prefix: str = Field(default="/api", alias="API_V1_PREFIX")
 
-    secret_key: str = Field(alias="SECRET_KEY")
+    secret_key: str = Field(default="dev_only_change_me", alias="SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(default=60, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     refresh_token_expire_minutes: int = Field(default=10080, alias="REFRESH_TOKEN_EXPIRE_MINUTES")
@@ -29,6 +33,7 @@ class Settings(BaseSettings):
     mysql_host: str = Field(default="127.0.0.1", alias="MYSQL_HOST")
     mysql_port: int = Field(default=3306, alias="MYSQL_PORT")
     mysql_db: str = Field(default="jobpilot", alias="MYSQL_DB")
+    database_url: str | None = Field(default="sqlite:///./jobpilot_dev.db", alias="DATABASE_URL")
 
     redis_url: str = Field(default="redis://127.0.0.1:6379/0", alias="REDIS_URL")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
@@ -54,9 +59,10 @@ class Settings(BaseSettings):
 
     # ocr
     upload_dir: str = Field(default="uploads", alias="UPLOAD_DIR")
-    ocr_engine: str = Field(default="paddleocr", alias="OCR_ENGINE")
+    ocr_engine: str = Field(default="tesseract", alias="OCR_ENGINE")
     ocr_lang: str = Field(default="ch", alias="OCR_LANG")
     ocr_max_file_size_mb: int = Field(default=10, alias="OCR_MAX_FILE_SIZE_MB")
+    tesseract_cmd: str | None = Field(default=None, alias="TESSERACT_CMD")
 
 
 
@@ -84,6 +90,8 @@ class Settings(BaseSettings):
 
     @property
     def sqlalchemy_database_uri(self) -> str:
+        if self.database_url:
+            return self.database_url
         return (
             f"mysql+pymysql://{self.mysql_user}:{self.mysql_password}"
             f"@{self.mysql_host}:{self.mysql_port}/{self.mysql_db}?charset=utf8mb4"

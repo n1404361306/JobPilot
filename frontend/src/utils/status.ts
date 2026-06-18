@@ -1,17 +1,27 @@
 import type { ApplicationStatus, JobStatus } from "@/api/types";
 
 export const applicationStatusLabels: Record<ApplicationStatus, string> = {
-  pending: "待处理",
+  pending: "待投递",
   submitted: "已投递",
+  screening: "筛选中",
+  written: "笔试",
+  tech_first: "技术一面",
+  tech_second: "技术二面",
+  hr_interview: "HR 面",
   interview: "面试中",
   offer: "Offer",
   rejected: "已拒绝",
-  withdrawn: "已撤回"
+  withdrawn: "已放弃"
 };
 
 export const applicationStatusTypes: Record<ApplicationStatus, "info" | "success" | "warning" | "danger" | "primary"> = {
   pending: "info",
   submitted: "primary",
+  screening: "warning",
+  written: "warning",
+  tech_first: "warning",
+  tech_second: "warning",
+  hr_interview: "warning",
   interview: "warning",
   offer: "success",
   rejected: "danger",
@@ -21,6 +31,11 @@ export const applicationStatusTypes: Record<ApplicationStatus, "info" | "success
 export const applicationStatusOrder: ApplicationStatus[] = [
   "pending",
   "submitted",
+  "screening",
+  "written",
+  "tech_first",
+  "tech_second",
+  "hr_interview",
   "interview",
   "offer",
   "rejected",

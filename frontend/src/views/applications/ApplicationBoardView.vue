@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="投递看板" description="按状态分组管理投递进展，手机端自动改为纵向状态列表。">
+    <PageHeader title="投递看板" description="按文档状态机管理投递进展，覆盖筛选、笔试、多轮面试、Offer、拒绝和放弃。">
       <template #actions>
         <el-button :icon="Refresh" @click="load">刷新</el-button>
       </template>
@@ -18,6 +18,7 @@
             <p>{{ jobMap.get(application.job_id)?.company || "公司未记录" }}</p>
             <p>渠道：{{ application.channel || "未记录" }}</p>
             <p>投递：{{ formatDateTime(application.applied_at) }}</p>
+            <p v-if="application.note">备注：{{ application.note }}</p>
             <el-select
               :model-value="application.status"
               size="small"
@@ -91,7 +92,7 @@ function handleStatusChange(application: Application, value: string | number | b
 }
 
 async function updateStatus(application: Application, status: ApplicationStatus) {
-  await applicationApi.update(application.id, { status });
+  await applicationApi.updateStatus(application.id, { status });
   ElMessage.success("状态已更新");
   await load();
 }

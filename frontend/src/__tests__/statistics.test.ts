@@ -8,8 +8,44 @@ const resumes: Resume[] = [
 ];
 
 const jobs: Job[] = [
-  { id: 1, user_id: 1, title: "FE", company: "Acme", location: null, salary_range: null, source_url: null, description: null, status: "active", created_at: "", updated_at: "" },
-  { id: 2, user_id: 1, title: "BE", company: "Beta", location: null, salary_range: null, source_url: null, description: null, status: "closed", created_at: "", updated_at: "" }
+  {
+    id: 1,
+    user_id: 1,
+    title: "FE",
+    company: "Acme",
+    location: null,
+    salary_range: null,
+    source_url: null,
+    source_type: null,
+    job_type: null,
+    deadline: null,
+    tags: null,
+    is_favorite: false,
+    import_batch_id: null,
+    description: null,
+    status: "active",
+    created_at: "",
+    updated_at: ""
+  },
+  {
+    id: 2,
+    user_id: 1,
+    title: "BE",
+    company: "Beta",
+    location: null,
+    salary_range: null,
+    source_url: null,
+    source_type: null,
+    job_type: null,
+    deadline: null,
+    tags: null,
+    is_favorite: false,
+    import_batch_id: null,
+    description: null,
+    status: "closed",
+    created_at: "",
+    updated_at: ""
+  }
 ];
 
 const applications: Application[] = [

@@ -1,16 +1,31 @@
 import { http } from "./http";
 import type {
   AdminUser,
+  AIResult,
   AiLog,
   Application,
   ApplicationPayload,
+  DeliveryProfile,
+  DeliverySite,
+  DeliveryTask,
+  DeliveryTaskLog,
   Job,
+  JobBatchImportResult,
+  JobBatchPreviewResult,
   JobPayload,
+  MatchReport,
   OcrLog,
+  PromptTemplate,
+  Report,
   Resume,
   ResumePayload,
   ResumeTemplate,
   ResumeTemplatePayload,
+  ResumeVersion,
+  StatisticsApplications,
+  StatisticsJobs,
+  StatisticsMatches,
+  StatisticsOverview,
   SystemConfig,
   SystemLog,
   TokenResponse,
@@ -47,6 +62,12 @@ export const resumeApi = {
   },
   remove(id: number) {
     return http.delete<unknown, null>(`/resumes/${id}`);
+  },
+  versions(id: number) {
+    return http.get<unknown, ResumeVersion[]>(`/resumes/${id}/versions`);
+  },
+  createVersion(id: number, payload: { version_name: string; content: string; structured_data?: string | null }) {
+    return http.post<unknown, ResumeVersion>(`/resumes/${id}/versions`, payload);
   }
 };
 
@@ -65,6 +86,14 @@ export const templateApi = {
   },
   remove(id: number) {
     return http.delete<unknown, null>(`/resume-templates/${id}`);
+  },
+  copy(id: number) {
+    return http.post<unknown, ResumeTemplate>(`/resume-templates/${id}/copy`);
+  },
+  upload(file: File) {
+    const data = new FormData();
+    data.append("file", file);
+    return http.post<unknown, ResumeTemplate>("/resume-templates/upload", data);
   }
 };
 
@@ -83,6 +112,28 @@ export const jobApi = {
   },
   remove(id: number) {
     return http.delete<unknown, null>(`/jobs/${id}`);
+  },
+  importText(payload: { text: string; source_url?: string | null }) {
+    return http.post<unknown, Job>("/jobs/import/text", payload);
+  },
+  previewBatchText(payload: { text: string; separator?: string | null }) {
+    return http.post<unknown, JobBatchPreviewResult>("/jobs/import/batch-text/preview", payload, { timeout: 120000 });
+  },
+  importBatchText(payload: { jobs: JobPayload[] }) {
+    return http.post<unknown, JobBatchImportResult>("/jobs/import/batch-text", payload, { timeout: 120000 });
+  },
+  importUrl(payload: { source_url: string; text?: string | null }) {
+    return http.post<unknown, Job>("/jobs/import/url", payload, { timeout: 120000 });
+  },
+  importFile(file: File) {
+    const data = new FormData();
+    data.append("file", file);
+    return http.post<unknown, Job>("/jobs/import/file", data, { timeout: 120000 });
+  },
+  importImage(file: File) {
+    const data = new FormData();
+    data.append("file", file);
+    return http.post<unknown, Job>("/jobs/import/image", data, { timeout: 120000 });
   }
 };
 
@@ -101,6 +152,97 @@ export const applicationApi = {
   },
   remove(id: number) {
     return http.delete<unknown, null>(`/applications/${id}`);
+  },
+  updateStatus(id: number, payload: { status: string; note?: string | null }) {
+    return http.post<unknown, Application>(`/applications/${id}/status`, payload);
+  },
+  kanban() {
+    return http.get<unknown, Record<string, Application[]>>("/applications/kanban");
+  }
+};
+
+export const matchingApi = {
+  calculate(payload: { resume_id: number; job_id: number }) {
+    return http.post<unknown, MatchReport>("/matching/calculate", payload);
+  },
+  get(id: number) {
+    return http.get<unknown, MatchReport>(`/matching/reports/${id}`);
+  }
+};
+
+export const statisticsApi = {
+  overview() {
+    return http.get<unknown, StatisticsOverview>("/statistics/overview");
+  },
+  applications() {
+    return http.get<unknown, StatisticsApplications>("/statistics/applications");
+  },
+  jobs() {
+    return http.get<unknown, StatisticsJobs>("/statistics/jobs");
+  },
+  matches() {
+    return http.get<unknown, StatisticsMatches>("/statistics/matches");
+  }
+};
+
+export const reportApi = {
+  list() {
+    return http.get<unknown, Report[]>("/reports");
+  },
+  weekly() {
+    return http.post<unknown, Report>("/ai/reports/weekly", undefined, { timeout: 120000 });
+  },
+  remove(id: number) {
+    return http.delete<unknown, null>(`/reports/${id}`);
+  }
+};
+
+export const aiApi = {
+  generateResume(text: string) {
+    return http.post<unknown, AIResult>("/ai/resumes/generate-from-text", { text });
+  },
+  parseResume(text: string) {
+    return http.post<unknown, AIResult>("/ai/resumes/parse-file", { text });
+  },
+  parseResumeUpload(file: File) {
+    const data = new FormData();
+    data.append("file", file);
+    return http.post<unknown, AIResult>("/ai/resumes/parse-upload", data, {
+      timeout: 120000
+    });
+  },
+  optimizeResume(text: string, resume_id?: number, job_id?: number) {
+    return http.post<unknown, AIResult>("/ai/resumes/optimize", { text, resume_id, job_id }, { timeout: 120000 });
+  },
+  adaptResume(text: string, resume_id?: number, job_id?: number) {
+    return http.post<unknown, AIResult>("/ai/resumes/adapt-to-job", { text, resume_id, job_id }, { timeout: 120000 });
+  },
+  interviewQuestions(text: string, resume_id?: number, job_id?: number) {
+    return http.post<unknown, AIResult>("/ai/interviews/questions", { text, resume_id, job_id }, { timeout: 120000 });
+  },
+  evaluateAnswer(payload: { question: string; answer: string; resume_id?: number; job_id?: number }) {
+    return http.post<unknown, AIResult>("/ai/interviews/evaluate-answer", payload, { timeout: 120000 });
+  }
+};
+
+export const deliveryApi = {
+  profile() {
+    return http.get<unknown, DeliveryProfile>("/delivery/profiles/me");
+  },
+  updateProfile(payload: Partial<Pick<DeliveryProfile, "real_name" | "phone" | "email" | "school" | "major" | "common_answers">>) {
+    return http.put<unknown, DeliveryProfile>("/delivery/profiles/me", payload);
+  },
+  createTask(payload: { job_id: number; resume_id?: number | null; site_name?: string | null; target_url?: string | null }) {
+    return http.post<unknown, DeliveryTask>("/delivery/tasks", payload);
+  },
+  previewTask(id: number) {
+    return http.post<unknown, { task: DeliveryTask; preview: Record<string, unknown> }>(`/delivery/tasks/${id}/preview`);
+  },
+  executeTask(id: number) {
+    return http.post<unknown, DeliveryTask>(`/delivery/tasks/${id}/execute`);
+  },
+  logs(id: number) {
+    return http.get<unknown, DeliveryTaskLog[]>(`/delivery/tasks/${id}/logs`);
   }
 };
 
@@ -125,5 +267,17 @@ export const adminApi = {
   },
   updateSystemConfig(key: string, config_value: string) {
     return http.put<unknown, null>(`/admin/system-configs/${key}`, { config_value });
+  },
+  prompts() {
+    return http.get<unknown, PromptTemplate[]>("/admin/prompts");
+  },
+  createPrompt(payload: Omit<PromptTemplate, "id" | "created_at" | "updated_at">) {
+    return http.post<unknown, { id: number }>("/admin/prompts", payload);
+  },
+  deliverySites() {
+    return http.get<unknown, DeliverySite[]>("/admin/delivery-sites");
+  },
+  updateDeliverySites(payload: DeliverySite[]) {
+    return http.put<unknown, null>("/admin/delivery-sites", payload);
   }
 };

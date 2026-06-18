@@ -96,7 +96,7 @@ const menuGroups = [
     items: [
       { label: "首页仪表盘", path: "/", icon: House },
       { label: "文字生成简历", path: "/resumes/generate", icon: MagicStick },
-      { label: "上传解析", path: "/resumes/upload", icon: Upload },
+      { label: "文件生成简历", path: "/resumes/upload", icon: Upload },
       { label: "简历列表", path: "/resumes", icon: Files },
       { label: "模板选择", path: "/templates", icon: Collection },
       { label: "岗位导入", path: "/jobs/import", icon: Promotion },
@@ -104,10 +104,9 @@ const menuGroups = [
       { label: "匹配报告", path: "/matching", icon: DataAnalysis },
       { label: "简历优化", path: "/optimization", icon: EditPen },
       { label: "模拟面试", path: "/interviews", icon: Monitor },
-      { label: "自动投递", path: "/delivery", icon: Promotion },
       { label: "投递看板", path: "/applications", icon: Management },
       { label: "数据统计", path: "/statistics", icon: Histogram },
-      { label: "求职报告", path: "/reports", icon: Reading }
+      { label: "AI 总结", path: "/reports", icon: Reading }
     ]
   },
   {
