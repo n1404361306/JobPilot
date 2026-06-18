@@ -5,6 +5,7 @@
         <el-button @click="router.push({ name: 'resume-list' })">返回列表</el-button>
         <ResumeExportToolbar
           v-model:template-id="templateId"
+          :custom-templates="customTemplates"
           :snapshot="previewSnapshot"
           :preview-ref="previewComponent"
           :filename="exportFilename"
@@ -39,7 +40,12 @@
           <el-tag type="info">{{ currentTemplate.name }}</el-tag>
         </div>
         <div class="preview-shell">
-          <ResumeStyledPreview ref="previewComponent" :snapshot="previewSnapshot" :template-id="templateId" />
+          <ResumeStyledPreview
+            ref="previewComponent"
+            :snapshot="previewSnapshot"
+            :template-id="templateId"
+            :custom-template-content="customTemplateContent"
+          />
         </div>
       </section>
     </div>
@@ -51,7 +57,8 @@ import type { FormInstance, FormRules } from "element-plus";
 import { ElMessage } from "element-plus";
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { resumeApi } from "@/api/modules";
+import { resumeApi, templateApi } from "@/api/modules";
+import type { ResumeTemplate } from "@/api/types";
 import PageHeader from "@/components/PageHeader.vue";
 import ResumeExportToolbar from "@/components/ResumeExportToolbar.vue";
 import ResumeFormEditor from "@/components/ResumeFormEditor.vue";
@@ -59,7 +66,14 @@ import ResumeStyledPreview from "@/components/ResumeStyledPreview.vue";
 import { getResumeTemplateId, useResumeForm } from "@/composables/useResumeForm";
 import { buildExportFilename } from "@/utils/resumeExport";
 import { snapshotFromPlainText } from "@/utils/resumeHelpers";
-import { DEFAULT_RESUME_TEMPLATE_ID, getTemplatePreset, type ResumeTemplateId } from "@/utils/resumeTemplates";
+import {
+  DEFAULT_RESUME_TEMPLATE_ID,
+  filterSelectableCustomTemplates,
+  findCustomTemplateContent,
+  getCustomTemplateLabel,
+  parseResumeTemplateQuery,
+  type ResumeTemplateId
+} from "@/utils/resumeTemplates";
 
 const router = useRouter();
 const route = useRoute();
@@ -68,6 +82,7 @@ const activeTab = ref("basic");
 const saving = ref(false);
 const isEdit = computed(() => Boolean(route.params.id));
 const templateId = ref<ResumeTemplateId>(DEFAULT_RESUME_TEMPLATE_ID);
+const customTemplates = ref<ResumeTemplate[]>([]);
 const previewComponent = ref<InstanceType<typeof ResumeStyledPreview>>();
 
 const formApi = useResumeForm();
@@ -84,7 +99,10 @@ const rules: FormRules<typeof metaForm> = {
 };
 
 const previewSnapshot = computed(() => exportSnapshot());
-const currentTemplate = computed(() => getTemplatePreset(templateId.value));
+const customTemplateContent = computed(() => findCustomTemplateContent(customTemplates.value, templateId.value));
+const currentTemplate = computed(() => ({
+  name: getCustomTemplateLabel(customTemplates.value, templateId.value)
+}));
 const exportFilename = computed(() => buildExportFilename(previewSnapshot.value));
 
 function loadContentToForm(content: string) {
@@ -125,8 +143,19 @@ async function save() {
 }
 
 onMounted(async () => {
+  try {
+    customTemplates.value = filterSelectableCustomTemplates(await templateApi.list());
+  } catch {
+    customTemplates.value = [];
+  }
+
   if (!isEdit.value) {
     formApi.resetForm();
+    templateId.value = parseResumeTemplateQuery(route.query.template) ?? DEFAULT_RESUME_TEMPLATE_ID;
+    const initialTemplateName = getCustomTemplateLabel(customTemplates.value, templateId.value);
+    if (initialTemplateName && initialTemplateName !== "用户模板") {
+      metaForm.title = `${initialTemplateName} 简历`;
+    }
     return;
   }
 

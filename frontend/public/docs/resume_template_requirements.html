@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户自定义简历模板要求</title>
+  <style>
+    :root {
+      color-scheme: light;
+    }
+
+    body {
+      margin: 0;
+      padding: 32px 20px 48px;
+      font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+      line-height: 1.7;
+      color: #1f2937;
+      background: #f8fafc;
+    }
+
+    main {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 28px 32px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      margin: 0 0 24px;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .doc-body {
+      white-space: pre-wrap;
+      font-size: 15px;
+    }
+
+    .error {
+      color: #dc2626;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>用户自定义简历模板要求</h1>
+    <p class="subtitle">格式、占位符、接口与可见性规则说明</p>
+    <div id="content" class="doc-body">正在加载文档…</div>
+  </main>
+  <script>
+    fetch("./resume_template_requirements.md")
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error("文档加载失败（" + response.status + "）");
+        }
+        return response.text();
+      })
+      .then(function (text) {
+        document.getElementById("content").textContent = text;
+      })
+      .catch(function (error) {
+        document.getElementById("content").innerHTML =
+          "<span class=\"error\">" + (error && error.message ? error.message : "文档加载失败") + "</span>";
+      });
+  </script>
+</body>
+</html>

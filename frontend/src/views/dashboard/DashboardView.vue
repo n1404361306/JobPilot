@@ -21,7 +21,7 @@
       <MetricCard label="投递记录" :value="metrics.applicationCount" hint="全状态汇总" tone="amber">
         <template #icon><el-icon><Promotion /></el-icon></template>
       </MetricCard>
-      <MetricCard label="面试机会" :value="metrics.interviewCount" hint="待跟进" tone="rose">
+      <MetricCard label="面试机会" :value="metrics.interviewCount" hint="笔试/面试/Offer" tone="rose">
         <template #icon><el-icon><Monitor /></el-icon></template>
       </MetricCard>
     </div>

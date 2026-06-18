@@ -7,11 +7,12 @@ from collections import Counter
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from jinja2 import Template
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.modules.resume.template_validation import validate_template_content
 from app.core.exceptions import BusinessException
 from app.core.response import ok
 from app.db.session import get_db
@@ -56,6 +57,7 @@ from app.schemas.business import (
     ResumeRenderRequest,
     ResumeTemplateCreate,
     ResumeTemplateOut,
+    ResumeTemplateSelectRequest,
     ResumeTemplateUpdate,
     ResumeUpdate,
     ResumeVersionCreate,
@@ -80,6 +82,107 @@ def _set_fields(model, payload, fields: tuple[str, ...]) -> None:
     for field in fields:
         if field in data:
             setattr(model, field, data[field])
+
+
+RESUME_FORM_MARKER = "<!--RESUME_FORM"
+
+VALID_APPLICATION_STATUSES = frozenset(
+    {
+        "pending",
+        "submitted",
+        "screening",
+        "written",
+        "tech_first",
+        "tech_second",
+        "hr_interview",
+        "interview",
+        "offer",
+        "rejected",
+        "withdrawn",
+    }
+)
+INTERVIEW_PIPELINE_STATUSES = frozenset(
+    {"written", "tech_first", "tech_second", "hr_interview", "interview", "offer"}
+)
+MATCH_SCORE_RANGE_ORDER = ("0-59", "60-79", "80-100")
+
+
+def _normalize_application_status(status: str | None) -> str:
+    normalized = (status or "pending").strip()
+    return normalized if normalized in VALID_APPLICATION_STATUSES else "pending"
+
+
+def _application_status_counter(applications) -> Counter:
+    return Counter(_normalize_application_status(item.status) for item in applications)
+
+
+def _interview_pipeline_count(status_counts: Counter) -> int:
+    return sum(status_counts.get(status, 0) for status in INTERVIEW_PIPELINE_STATUSES)
+
+
+def _match_score_ranges(reports) -> dict[str, int]:
+    return {
+        "0-59": sum(1 for report in reports if report.score < 60),
+        "60-79": sum(1 for report in reports if 60 <= report.score < 80),
+        "80-100": sum(1 for report in reports if report.score >= 80),
+    }
+
+
+def _active_job_count(jobs) -> int:
+    return sum(1 for job in jobs if job.status == "active")
+
+
+def _can_use_template(template: ResumeTemplate, user: User) -> bool:
+    return template.enabled and (template.user_id is None or template.user_id == user.id or template.is_public)
+
+
+def _ensure_template_access(db: Session, template_key: str, user: User) -> None:
+    if not template_key.startswith("custom:"):
+        return
+    try:
+        template_id = int(template_key.split(":", 1)[1])
+    except ValueError as exc:
+        raise BusinessException(code=4007, message="invalid template id") from exc
+    template = db.get(ResumeTemplate, template_id)
+    if not template or not _can_use_template(template, user):
+        raise BusinessException(code=4031, message="template not allowed")
+
+
+def _apply_template_key_to_resume_content(content: str, template_key: str) -> str:
+    marker_index = content.rfind(RESUME_FORM_MARKER)
+    if marker_index == -1:
+        snapshot = {
+            "basic_info": {"name": "", "phone": "", "email": "", "github": "", "website": "", "location": "", "photo": ""},
+            "job_intention": "",
+            "summary": content,
+            "skillsText": {"languages": "", "backend": "", "database": "", "ai": "", "tools": "", "language_ability": ""},
+            "education": [],
+            "internships": [],
+            "projects": [],
+            "researchText": "",
+            "awardsText": "",
+            "certificatesText": "",
+            "open_source": "",
+            "interests": "",
+            "self_evaluation": "",
+            "missingText": "",
+            "templateId": template_key,
+        }
+        return f"{content.strip()}\n\n{RESUME_FORM_MARKER}\n{json.dumps(snapshot, ensure_ascii=False)}\n-->"
+
+    display_content = content[:marker_index].strip()
+    json_start = content.find("\n", marker_index) + 1
+    json_end = content.rfind("\n-->")
+    snapshot: dict = {}
+    if json_start > 0 and json_end > json_start:
+        try:
+            parsed = json.loads(content[json_start:json_end])
+            if isinstance(parsed, dict):
+                snapshot = parsed
+        except json.JSONDecodeError:
+            snapshot = {}
+    snapshot["templateId"] = template_key
+    return f"{display_content}\n\n{RESUME_FORM_MARKER}\n{json.dumps(snapshot, ensure_ascii=False)}\n-->"
 
 
 def _get_resume(db: Session, resume_id: int, user_id: int) -> Resume:
@@ -945,7 +1048,7 @@ def list_resume_templates(
         select(ResumeTemplate)
         .where(
             ResumeTemplate.enabled.is_(True),
-            (ResumeTemplate.user_id.is_(None)) | (ResumeTemplate.user_id == user.id),
+            (ResumeTemplate.user_id.is_(None)) | (ResumeTemplate.user_id == user.id) | (ResumeTemplate.is_public.is_(True)),
         )
         .order_by(ResumeTemplate.id.desc())
     ).all()
@@ -969,6 +1072,7 @@ def create_resume_template(
 ):
     data = payload.model_dump()
     data["is_system"] = True
+    data["is_public"] = True
     template = ResumeTemplate(**data, user_id=None)
     db.add(template)
     db.commit()
@@ -986,7 +1090,7 @@ def update_resume_template(
     template = db.get(ResumeTemplate, template_id)
     if not template:
         raise BusinessException(code=4045, message="resume template not found")
-    _set_fields(template, payload, ("name", "description", "content", "enabled"))
+    _set_fields(template, payload, ("name", "description", "content", "enabled", "is_public"))
     db.add(template)
     db.commit()
     db.refresh(template)
@@ -1010,26 +1114,107 @@ def delete_resume_template(
 @router.post("/resume-templates/upload")
 async def upload_resume_template(
     file: UploadFile = File(...),
+    name: str | None = Form(default=None),
+    description: str | None = Form(default=None),
+    is_public: bool = Form(default=False),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     raw = await file.read()
-    content = raw.decode("utf-8", errors="ignore")
-    lowered = content.lower()
-    if "<script" in lowered or "<iframe" in lowered:
-        raise BusinessException(code=4006, message="template contains unsafe tags")
+    try:
+        content = validate_template_content(raw.decode("utf-8", errors="ignore"))
+    except ValueError as exc:
+        raise BusinessException(code=4006, message=str(exc)) from exc
     template = ResumeTemplate(
-        name=file.filename or "用户模板",
-        description="用户上传模板",
+        name=(name or file.filename or "用户模板")[:128],
+        description=(description or "用户上传模板")[:255],
         content=content or "{{content}}",
         enabled=True,
         user_id=user.id,
         is_system=False,
+        is_public=is_public,
     )
     db.add(template)
     db.commit()
     db.refresh(template)
     return ok(_dump(template, ResumeTemplateOut), "template uploaded")
+
+
+@router.post("/resume-templates/mine")
+def create_my_resume_template(
+    payload: ResumeTemplateCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    try:
+        content = validate_template_content(payload.content)
+    except ValueError as exc:
+        raise BusinessException(code=4006, message=str(exc)) from exc
+    template = ResumeTemplate(
+        name=payload.name[:128],
+        description=(payload.description or "用户自制模板")[:255],
+        content=content,
+        enabled=True,
+        user_id=user.id,
+        is_system=False,
+        is_public=payload.is_public,
+    )
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+    return ok(_dump(template, ResumeTemplateOut), "template created")
+
+
+@router.get("/resume-templates/{template_id}")
+def get_resume_template(
+    template_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    template = db.get(ResumeTemplate, template_id)
+    if not template or not _can_use_template(template, user):
+        raise BusinessException(code=4045, message="resume template not found")
+    return ok(_dump(template, ResumeTemplateOut))
+
+
+@router.put("/resume-templates/{template_id}/mine")
+def update_my_resume_template(
+    template_id: int,
+    payload: ResumeTemplateUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    template = db.get(ResumeTemplate, template_id)
+    if not template or template.user_id != user.id:
+        raise BusinessException(code=4045, message="resume template not found")
+    if payload.content is not None:
+        try:
+            payload.content = validate_template_content(payload.content)
+        except ValueError as exc:
+            raise BusinessException(code=4006, message=str(exc)) from exc
+    _set_fields(template, payload, ("name", "description", "content", "enabled", "is_public"))
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+    return ok(_dump(template, ResumeTemplateOut), "template updated")
+
+
+@router.post("/resumes/{resume_id}/template")
+def select_resume_template(
+    resume_id: int,
+    payload: ResumeTemplateSelectRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    resume = db.get(Resume, resume_id)
+    if not resume or resume.user_id != user.id:
+        raise BusinessException(code=4041, message="resume not found")
+    _ensure_template_access(db, payload.template_id, user)
+    resume.content = _apply_template_key_to_resume_content(resume.content, payload.template_id)
+    db.add(resume)
+    db.commit()
+    db.refresh(resume)
+    return ok(_dump(resume, ResumeOut), "template selected")
 
 
 @router.post("/resume-templates/{template_id}/copy")
@@ -1050,6 +1235,7 @@ def copy_resume_template(
         enabled=True,
         user_id=user.id,
         is_system=False,
+        is_public=False,
         copied_from_id=template.id,
     )
     db.add(copied)
@@ -1062,6 +1248,7 @@ def copy_resume_template(
 def list_jobs(
     status: str | None = Query(default=None),
     keyword: str | None = Query(default=None),
+    favorite: bool | None = Query(default=None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -1071,6 +1258,8 @@ def list_jobs(
     if keyword:
         pattern = f"%{keyword}%"
         stmt = stmt.where((Job.title.like(pattern)) | (Job.company.like(pattern)))
+    if favorite is not None:
+        stmt = stmt.where(Job.is_favorite.is_(favorite))
     jobs = db.scalars(stmt.order_by(Job.id.desc())).all()
     return ok([_dump(job, JobOut) for job in jobs])
 
@@ -1423,13 +1612,14 @@ def statistics_overview(
     jobs = db.scalars(select(Job).where(Job.user_id == user.id)).all()
     applications = db.scalars(select(Application).where(Application.user_id == user.id)).all()
     reports = db.scalars(select(MatchReport).where(MatchReport.user_id == user.id)).all()
-    status_counts = Counter(item.status for item in applications)
+    status_counts = _application_status_counter(applications)
     city_counts = Counter(job.location or "未填写" for job in jobs)
     avg_match = round(sum(item.score for item in reports) / len(reports), 1) if reports else 0
     return ok(
         {
             "resume_count": len(resumes),
             "job_count": len(jobs),
+            "active_job_count": _active_job_count(jobs),
             "application_count": len(applications),
             "match_report_count": len(reports),
             "average_match_score": avg_match,
@@ -1445,14 +1635,16 @@ def statistics_applications(
     user: User = Depends(get_current_user),
 ):
     applications = db.scalars(select(Application).where(Application.user_id == user.id)).all()
-    status_counts = Counter(item.status for item in applications)
+    status_counts = _application_status_counter(applications)
     total = len(applications)
-    interview_count = sum(status_counts.get(s, 0) for s in ("written", "tech_first", "tech_second", "hr_interview", "interview", "offer"))
+    interview_count = _interview_pipeline_count(status_counts)
     offer_count = status_counts.get("offer", 0)
     return ok(
         {
             "total": total,
             "status_counts": dict(status_counts),
+            "interview_count": interview_count,
+            "offer_count": offer_count,
             "interview_conversion_rate": round(interview_count / total, 4) if total else 0,
             "offer_conversion_rate": round(offer_count / total, 4) if total else 0,
         }
@@ -1473,6 +1665,7 @@ def statistics_jobs(
     return ok(
         {
             "total": len(jobs),
+            "active_count": _active_job_count(jobs),
             "source_counts": dict(Counter(job.source_type or "manual" for job in jobs)),
             "type_counts": dict(Counter(job.job_type or "未分类" for job in jobs)),
             "city_counts": dict(Counter(job.location or "未填写" for job in jobs)),
@@ -1488,15 +1681,12 @@ def statistics_matches(
     user: User = Depends(get_current_user),
 ):
     reports = db.scalars(select(MatchReport).where(MatchReport.user_id == user.id)).all()
+    score_ranges = _match_score_ranges(reports)
     return ok(
         {
             "total": len(reports),
             "average_score": round(sum(report.score for report in reports) / len(reports), 1) if reports else 0,
-            "score_ranges": {
-                "0-59": sum(1 for report in reports if report.score < 60),
-                "60-79": sum(1 for report in reports if 60 <= report.score < 80),
-                "80-100": sum(1 for report in reports if report.score >= 80),
-            },
+            "score_ranges": score_ranges,
             "latest": [_dump(report, MatchReportOut) for report in sorted(reports, key=lambda item: item.id, reverse=True)[:10]],
         }
     )
@@ -1518,22 +1708,20 @@ def _build_weekly_report_context(db: Session, user_id: int) -> dict:
     jobs = db.scalars(select(Job).where(Job.user_id == user_id)).all()
     applications = db.scalars(select(Application).where(Application.user_id == user_id)).all()
     reports = db.scalars(select(MatchReport).where(MatchReport.user_id == user_id)).all()
+    status_counts = _application_status_counter(applications)
     return {
         "overview": {
             "resume_count": len(resumes),
             "job_count": len(jobs),
+            "active_job_count": _active_job_count(jobs),
             "application_count": len(applications),
             "match_report_count": len(reports),
             "average_match_score": round(sum(r.score for r in reports) / len(reports), 1) if reports else 0,
         },
-        "application_status_counts": dict(Counter(item.status for item in applications)),
+        "application_status_counts": dict(status_counts),
         "job_source_counts": dict(Counter(job.source_type or "manual" for job in jobs)),
         "job_city_counts": dict(Counter(job.location or "未填写" for job in jobs)),
-        "match_score_ranges": {
-            "0-59": sum(1 for r in reports if r.score < 60),
-            "60-79": sum(1 for r in reports if 60 <= r.score < 80),
-            "80-100": sum(1 for r in reports if r.score >= 80),
-        },
+        "match_score_ranges": _match_score_ranges(reports),
     }
 
 

@@ -1,12 +1,28 @@
 <template>
   <div class="export-toolbar">
-    <el-select v-model="templateId" placeholder="选择模板" class="template-select">
-      <el-option v-for="item in RESUME_TEMPLATE_PRESETS" :key="item.id" :label="item.name" :value="item.id">
-        <div class="template-option">
-          <span>{{ item.name }}</span>
-          <span class="template-dot" :style="{ background: item.accent }" />
-        </div>
-      </el-option>
+    <el-select
+      v-if="!hideTemplateSelect"
+      v-model="templateId"
+      placeholder="选择模板"
+      class="template-select"
+      filterable
+    >
+      <el-option-group label="内置模板">
+        <el-option v-for="item in RESUME_TEMPLATE_PRESETS" :key="item.id" :label="item.name" :value="item.id">
+          <div class="template-option">
+            <span>{{ item.name }}</span>
+            <span class="template-dot" :style="{ background: item.accent }" />
+          </div>
+        </el-option>
+      </el-option-group>
+      <el-option-group v-if="customTemplates.length" label="用户模板">
+        <el-option
+          v-for="item in customTemplates"
+          :key="item.id"
+          :label="`${item.name}${item.is_public ? '（公开）' : ''}`"
+          :value="customTemplateId(item.id)"
+        />
+      </el-option-group>
     </el-select>
     <el-button :icon="Download" :loading="exportingPdf" @click="handleExportPdf">导出 PDF</el-button>
     <el-button :icon="Document" :loading="exportingDocx" @click="handleExportDocx">导出 DOCX</el-button>
@@ -17,17 +33,32 @@
 import { Document, Download } from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import { ref } from "vue";
+import type { ResumeTemplate } from "@/api/types";
 import type { ResumeFormSnapshot } from "@/composables/useResumeForm";
 import { buildExportFilename, exportResumeDocx, exportResumePdf } from "@/utils/resumeExport";
-import { DEFAULT_RESUME_TEMPLATE_ID, RESUME_TEMPLATE_PRESETS, type ResumeTemplateId } from "@/utils/resumeTemplates";
+import {
+  customTemplateId,
+  DEFAULT_RESUME_TEMPLATE_ID,
+  isCustomTemplateId,
+  RESUME_TEMPLATE_PRESETS,
+  type ResumeTemplateId
+} from "@/utils/resumeTemplates";
 
 const templateId = defineModel<ResumeTemplateId>("templateId", { default: DEFAULT_RESUME_TEMPLATE_ID });
 
-const props = defineProps<{
-  snapshot: ResumeFormSnapshot;
-  previewRef?: { getElement?: () => HTMLElement | undefined } | HTMLElement | null;
-  filename?: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    snapshot: ResumeFormSnapshot;
+    previewRef?: { getElement?: () => HTMLElement | undefined } | HTMLElement | null;
+    filename?: string;
+    customTemplates?: ResumeTemplate[];
+    hideTemplateSelect?: boolean;
+  }>(),
+  {
+    customTemplates: () => [],
+    hideTemplateSelect: false
+  }
+);
 
 const exportingPdf = ref(false);
 const exportingDocx = ref(false);
@@ -57,6 +88,10 @@ async function handleExportPdf() {
 }
 
 async function handleExportDocx() {
+  if (isCustomTemplateId(templateId.value)) {
+    ElMessage.warning("自定义模板请使用 PDF 导出，或在预览页面直接打印");
+    return;
+  }
   exportingDocx.value = true;
   try {
     await exportResumeDocx(props.snapshot, templateId.value, props.filename || buildExportFilename(props.snapshot));
@@ -78,7 +113,7 @@ async function handleExportDocx() {
 }
 
 .template-select {
-  width: 168px;
+  width: 220px;
 }
 
 .template-option {

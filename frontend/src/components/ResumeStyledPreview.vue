@@ -1,5 +1,11 @@
 <template>
-  <article ref="rootRef" class="resume-doc" :class="`resume-doc--${templateId}`" :style="accentStyle">
+  <article
+    ref="rootRef"
+    class="resume-doc"
+    :class="[`resume-doc--${templateClass}`, { 'resume-doc--compact': compact }]"
+    :style="accentStyle"
+  >
+    <div v-if="isCustomTemplate && customHtml" class="custom-template" v-html="customHtml" />
     <template v-if="templateId === 'sidebar'">
       <div class="doc-layout">
         <aside class="doc-sidebar">
@@ -38,7 +44,7 @@
       </div>
     </template>
 
-    <template v-else>
+    <template v-else-if="!isCustomTemplate">
       <header class="doc-header" :class="{ 'doc-header--banner': templateId === 'modern', 'doc-header--with-photo': hasPhoto }">
         <img v-if="hasPhoto" :src="photo" class="doc-photo" :class="`doc-photo--${templateId}`" alt="个人照片" />
         <div class="doc-header-content">
@@ -66,20 +72,25 @@ import { computed, ref } from "vue";
 import type { ResumeFormSnapshot } from "@/composables/useResumeForm";
 import ResumeStyledSections from "@/components/ResumeStyledSections.vue";
 import { contactItems, hasPhoto as snapshotHasPhoto, hasText, skillGroups } from "@/utils/resumeHelpers";
-import { getTemplatePreset, type ResumeTemplateId } from "@/utils/resumeTemplates";
+import { getTemplatePreset, isCustomTemplateId, type ResumeTemplateId } from "@/utils/resumeTemplates";
 
 const props = withDefaults(
   defineProps<{
     snapshot: ResumeFormSnapshot;
     templateId?: ResumeTemplateId;
+    customTemplateContent?: string;
+    compact?: boolean;
   }>(),
   {
-    templateId: "classic"
+    templateId: "classic",
+    compact: false
   }
 );
 
 const rootRef = ref<HTMLElement>();
 const preset = computed(() => getTemplatePreset(props.templateId));
+const isCustomTemplate = computed(() => isCustomTemplateId(props.templateId));
+const templateClass = computed(() => (isCustomTemplate.value ? "custom" : props.templateId));
 const accentStyle = computed(() => ({
   "--accent": preset.value.accent,
   "--accent-light": preset.value.accentLight,
@@ -91,6 +102,88 @@ const photo = computed(() => props.snapshot.basic_info.photo || "");
 const hasPhoto = computed(() => snapshotHasPhoto(props.snapshot));
 const contactItemsList = computed(() => contactItems(props.snapshot));
 const skillGroupsList = computed(() => skillGroups(props.snapshot));
+const customHtml = computed(() => renderCustomTemplate(props.customTemplateContent || "", props.snapshot));
+
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function textBlock(value: unknown) {
+  return escapeHtml(value).replace(/\n/g, "<br>");
+}
+
+function listBlock(value: string) {
+  return value
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+}
+
+function sectionItems(items: unknown[], fields: string[]) {
+  return items
+    .map((rawItem) => {
+      const item = rawItem as Record<string, string>;
+      const title = fields.map((field) => item[field]).filter(Boolean).join("｜");
+      const detail = Object.entries(item)
+        .filter(([key, value]) => !fields.includes(key) && hasText(value))
+        .map(([, value]) => `<p>${textBlock(value)}</p>`)
+        .join("");
+      return `<section class="custom-item"><h3>${escapeHtml(title)}</h3>${detail}</section>`;
+    })
+    .join("");
+}
+
+function sanitizeTemplate(html: string) {
+  return html
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+    .replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<object[\s\S]*?>[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed[\s\S]*?>/gi, "")
+    .replace(/\son\w+="[^"]*"/gi, "")
+    .replace(/\son\w+='[^']*'/gi, "")
+    .replace(/javascript:/gi, "");
+}
+
+function renderCustomTemplate(template: string, snapshot: ResumeFormSnapshot) {
+  if (!template.trim()) return "";
+  const values: Record<string, string> = {
+    name: escapeHtml(snapshot.basic_info.name || "未命名简历"),
+    phone: escapeHtml(snapshot.basic_info.phone),
+    email: escapeHtml(snapshot.basic_info.email),
+    github: escapeHtml(snapshot.basic_info.github),
+    website: escapeHtml(snapshot.basic_info.website),
+    location: escapeHtml(snapshot.basic_info.location),
+    photo: snapshot.basic_info.photo ? escapeHtml(snapshot.basic_info.photo) : "",
+    job_intention: textBlock(snapshot.job_intention),
+    summary: textBlock(snapshot.summary),
+    skills: listBlock(Object.values(snapshot.skillsText).filter(Boolean).join("\n")),
+    education: sectionItems(snapshot.education, ["school", "major", "degree", "period"]),
+    internships: sectionItems(snapshot.internships, ["company", "position", "period", "location"]),
+    projects: sectionItems(snapshot.projects, ["project_name", "type", "period"]),
+    research: textBlock(snapshot.researchText),
+    awards: listBlock(snapshot.awardsText),
+    certificates: textBlock(snapshot.certificatesText),
+    open_source: textBlock(snapshot.open_source),
+    interests: textBlock(snapshot.interests),
+    self_evaluation: textBlock(snapshot.self_evaluation),
+    missing: textBlock(snapshot.missingText)
+  };
+  const rendered = template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match, key: string) => {
+    if (key.startsWith("basic_info.")) {
+      const field = key.split(".")[1] as keyof ResumeFormSnapshot["basic_info"];
+      return escapeHtml(snapshot.basic_info[field]);
+    }
+    return values[key] ?? "";
+  });
+  return sanitizeTemplate(rendered);
+}
 
 defineExpose({
   getElement: () => rootRef.value
@@ -108,6 +201,11 @@ defineExpose({
   font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   line-height: 1.65;
   box-sizing: border-box;
+}
+
+.resume-doc--compact {
+  min-height: auto;
+  padding: 28px 32px;
 }
 
 .doc-name {
@@ -281,6 +379,41 @@ defineExpose({
 .doc-main,
 .doc-body {
   min-width: 0;
+}
+
+.custom-template {
+  min-height: 700px;
+}
+
+.custom-template :deep(img) {
+  max-width: 100%;
+}
+
+.custom-template :deep(.custom-item) {
+  margin-bottom: 12px;
+}
+
+.custom-template :deep(.custom-item h3) {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.custom-template :deep(ul) {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.custom-template :deep(li) {
+  margin-bottom: 4px;
+}
+
+.custom-template :deep(h2) {
+  margin: 18px 0 8px;
+  font-size: 16px;
+}
+
+.custom-template :deep(p) {
+  margin: 0 0 8px;
 }
 
 .resume-doc--classic .doc-header {

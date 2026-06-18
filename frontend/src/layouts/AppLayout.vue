@@ -99,6 +99,7 @@ const menuGroups = [
       { label: "文件生成简历", path: "/resumes/upload", icon: Upload },
       { label: "简历列表", path: "/resumes", icon: Files },
       { label: "模板选择", path: "/templates", icon: Collection },
+      { label: "AI 制作模板", path: "/templates/ai-maker", icon: MagicStick },
       { label: "岗位导入", path: "/jobs/import", icon: Promotion },
       { label: "岗位列表", path: "/jobs", icon: Briefcase },
       { label: "匹配报告", path: "/matching", icon: DataAnalysis },

@@ -61,6 +61,12 @@ export const routes: RouteRecordRaw[] = [
       { path: "resumes/:id/edit", name: "resume-edit", component: () => import("@/views/resumes/ResumeEditorView.vue"), meta: { title: "简历编辑器" } },
       { path: "resumes/:id/preview", name: "resume-preview", component: () => import("@/views/resumes/ResumePreviewView.vue"), meta: { title: "简历预览导出" } },
       { path: "templates", name: "template-gallery", component: () => import("@/views/resumes/TemplateGalleryView.vue"), meta: { title: "模板选择" } },
+      {
+        path: "templates/ai-maker",
+        name: "template-ai-maker",
+        component: () => import("@/views/resumes/AiTemplateMakerView.vue"),
+        meta: { title: "AI 制作模板" }
+      },
       { path: "jobs/import", name: "job-import", component: () => import("@/views/jobs/JobImportView.vue"), meta: { title: "岗位导入" } },
       { path: "jobs", name: "job-list", component: () => import("@/views/jobs/JobListView.vue"), meta: { title: "岗位列表" } },
       { path: "jobs/new", name: "job-new", component: () => import("@/views/jobs/JobDetailView.vue"), meta: { title: "新建岗位" } },

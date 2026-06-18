@@ -21,6 +21,7 @@ import type {
   ResumePayload,
   ResumeTemplate,
   ResumeTemplatePayload,
+  ResumeTemplateChatPayload,
   ResumeVersion,
   StatisticsApplications,
   StatisticsJobs,
@@ -68,6 +69,9 @@ export const resumeApi = {
   },
   createVersion(id: number, payload: { version_name: string; content: string; structured_data?: string | null }) {
     return http.post<unknown, ResumeVersion>(`/resumes/${id}/versions`, payload);
+  },
+  selectTemplate(id: number, templateId: string) {
+    return http.post<unknown, Resume>(`/resumes/${id}/template`, { template_id: templateId });
   }
 };
 
@@ -90,15 +94,27 @@ export const templateApi = {
   copy(id: number) {
     return http.post<unknown, ResumeTemplate>(`/resume-templates/${id}/copy`);
   },
-  upload(file: File) {
+  get(id: number) {
+    return http.get<unknown, ResumeTemplate>(`/resume-templates/${id}`);
+  },
+  upload(file: File, payload?: { name?: string; description?: string; is_public?: boolean }) {
     const data = new FormData();
     data.append("file", file);
+    if (payload?.name) data.append("name", payload.name);
+    if (payload?.description) data.append("description", payload.description);
+    data.append("is_public", String(payload?.is_public ?? false));
     return http.post<unknown, ResumeTemplate>("/resume-templates/upload", data);
+  },
+  createMine(payload: ResumeTemplatePayload) {
+    return http.post<unknown, ResumeTemplate>("/resume-templates/mine", payload);
+  },
+  updateMine(id: number, payload: Partial<ResumeTemplatePayload>) {
+    return http.put<unknown, ResumeTemplate>(`/resume-templates/${id}/mine`, payload);
   }
 };
 
 export const jobApi = {
-  list(params?: { status?: string; keyword?: string }) {
+  list(params?: { status?: string; keyword?: string; favorite?: boolean }) {
     return http.get<unknown, Job[]>("/jobs", { params });
   },
   create(payload: JobPayload) {
@@ -222,6 +238,9 @@ export const aiApi = {
   },
   evaluateAnswer(payload: { question: string; answer: string; resume_id?: number; job_id?: number }) {
     return http.post<unknown, AIResult>("/ai/interviews/evaluate-answer", payload, { timeout: 120000 });
+  },
+  chatResumeTemplate(payload: ResumeTemplateChatPayload) {
+    return http.post<unknown, AIResult>("/ai/resume-templates/chat", payload, { timeout: 180000 });
   }
 };
 

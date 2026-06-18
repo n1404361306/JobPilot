@@ -1,7 +1,10 @@
-export type ResumeTemplateId = "classic" | "modern" | "sidebar" | "minimal";
+import type { ResumeTemplate } from "@/api/types";
 
-export interface ResumeTemplatePreset {
-  id: ResumeTemplateId;
+export type BuiltInResumeTemplateId = "classic" | "modern" | "sidebar" | "minimal";
+export type CustomResumeTemplateId = `custom:${number}`;
+export type ResumeTemplateId = BuiltInResumeTemplateId | CustomResumeTemplateId;
+
+export interface ResumeTemplatePreset {  id: BuiltInResumeTemplateId;
   name: string;
   description: string;
   accent: string;
@@ -48,4 +51,46 @@ export const DEFAULT_RESUME_TEMPLATE_ID: ResumeTemplateId = "classic";
 
 export function getTemplatePreset(id: ResumeTemplateId) {
   return RESUME_TEMPLATE_PRESETS.find((item) => item.id === id) ?? RESUME_TEMPLATE_PRESETS[0];
+}
+
+export function isCustomTemplateId(id: ResumeTemplateId | string): id is CustomResumeTemplateId {
+  return /^custom:\d+$/.test(id);
+}
+
+export function customTemplateId(id: number): CustomResumeTemplateId {
+  return `custom:${id}`;
+}
+
+export function parseCustomTemplateId(id: ResumeTemplateId | string) {
+  return isCustomTemplateId(id) ? Number(id.split(":")[1]) : null;
+}
+
+export function parseResumeTemplateQuery(value: unknown): ResumeTemplateId | null {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+  const normalized = value.trim();
+  if (isCustomTemplateId(normalized)) {
+    return normalized;
+  }
+  if (RESUME_TEMPLATE_PRESETS.some((item) => item.id === normalized)) {
+    return normalized as ResumeTemplateId;
+  }
+  return null;
+}
+
+export function filterSelectableCustomTemplates(templates: ResumeTemplate[]) {
+  return templates.filter((template) => template.user_id != null);
+}
+
+export function findCustomTemplateContent(templates: ResumeTemplate[], templateId: ResumeTemplateId | string) {
+  const id = parseCustomTemplateId(templateId);
+  if (!id) return "";
+  return templates.find((template) => template.id === id)?.content ?? "";
+}
+
+export function getCustomTemplateLabel(templates: ResumeTemplate[], templateId: ResumeTemplateId | string) {
+  const id = parseCustomTemplateId(templateId);
+  if (!id) return getTemplatePreset(templateId as ResumeTemplateId).name;
+  return templates.find((template) => template.id === id)?.name ?? "用户模板";
 }
