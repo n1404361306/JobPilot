@@ -26,3 +26,6 @@ frontend/dist/
 frontend/.vite/
 frontend/.npm-cache/
 frontend/node_cache/
+
+# 项目文档
+/documents
