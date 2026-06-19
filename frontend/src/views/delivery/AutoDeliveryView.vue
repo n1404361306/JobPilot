@@ -97,6 +97,10 @@ async function saveProfile() {
   }
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function createAndRunTask() {
   if (!task.job_id) {
     ElMessage.warning("请选择岗位");
@@ -104,12 +108,50 @@ async function createAndRunTask() {
   }
   taskLoading.value = true;
   try {
-    const created = await deliveryApi.createTask(task as { job_id: number; resume_id?: number | null; site_name?: string; target_url?: string });
+    const created = await deliveryApi.createTask(
+      task as { job_id: number; resume_id?: number | null; site_name?: string; target_url?: string }
+    );
     const previewResult = await deliveryApi.previewTask(created.id);
     preview.value = previewResult.preview;
-    currentTask.value = await deliveryApi.executeTask(created.id);
-    logs.value = await deliveryApi.logs(created.id);
-    ElMessage.success("投递任务已完成");
+
+    const queued = (await deliveryApi.executeTask(created.id)) as DeliveryTask & {
+      worker_task_id?: string;
+    };
+    currentTask.value = queued;
+
+    const workerTaskId = queued.worker_task_id;
+    let finalStatus = queued.task_status;
+
+    for (let i = 0; i < 40; i++) {
+      logs.value = await deliveryApi.logs(created.id);
+
+      if (workerTaskId) {
+        const poll = await deliveryApi.pollExecuteTask(created.id, workerTaskId);
+        finalStatus = poll.task_status === "running"
+          ? (poll.task?.task_status || "running")
+          : (poll.task?.task_status || poll.task_status);
+        if (poll.task) {
+          currentTask.value = poll.task;
+        }
+      } else {
+        const latest = await deliveryApi.getTask(created.id);
+        currentTask.value = latest;
+        finalStatus = latest.task_status;
+      }
+
+      if (!["pending", "running"].includes(finalStatus)) {
+        break;
+      }
+      await sleep(1500);
+    }
+
+    if (finalStatus === "success") {
+      ElMessage.success("投递任务已完成");
+    } else if (finalStatus === "waiting_user") {
+      ElMessage.warning("请根据日志提示补充投递链接或档案信息");
+    } else {
+      ElMessage.error("投递任务执行失败");
+    }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : "执行失败");
   } finally {

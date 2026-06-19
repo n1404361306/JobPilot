@@ -262,7 +262,17 @@ export const deliveryApi = {
   },
   logs(id: number) {
     return http.get<unknown, DeliveryTaskLog[]>(`/delivery/tasks/${id}/logs`);
-  }
+  },
+  getTask(id: number) {
+    return http.get<unknown, DeliveryTask>(`/delivery/tasks/${id}`);
+  },
+  pollExecuteTask(taskId: number, workerTaskId: string) {
+    return http.get<unknown, {
+      task_status: string;
+      task?: DeliveryTask;
+      worker_task_id?: string;
+    }>(`/delivery/tasks/${taskId}/execute/tasks/${workerTaskId}`);
+  },
 };
 
 export const adminApi = {
